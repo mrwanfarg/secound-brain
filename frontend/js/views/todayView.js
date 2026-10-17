@@ -52,6 +52,15 @@ export function renderTodayView(container) {
         <div class="stopwatch-digits" id="stopwatchClockDisplay">00:00</div>
       </div>
 
+      <!-- Completion banner (hidden until Finish is pressed) -->
+      <div id="stopwatchDoneBanner" style="display:none; align-items:center; gap:12px; margin-top:14px; padding:12px 16px; background:rgba(80,220,130,0.12); border:1px solid rgba(80,220,130,0.35); border-radius:12px;">
+        <span style="font-size:24px; color:var(--green);">✓</span>
+        <div>
+          <div style="font-weight:700; color:var(--green); font-size:14px;" id="stopwatchDoneTitle">Session complete!</div>
+          <div style="font-size:12px; color:var(--muted);" id="stopwatchDoneDetail"></div>
+        </div>
+      </div>
+
       <div class="stopwatch-actions-bar" style="display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap;">
         <button class="btn btn-primary" id="stopwatchMainToggleBtn">▶ Start Stopwatch</button>
         <button class="btn btn-secondary" id="stopwatchPauseBtn" style="display: none;">⏸ Pause</button>
@@ -131,6 +140,9 @@ export function renderTodayView(container) {
   const finishBtn = container.querySelector('#stopwatchFinishBtn');
   const resetBtn = container.querySelector('#stopwatchResetBtn');
   const statusCaption = container.querySelector('#stopwatchStatusCaption');
+  const doneBanner = container.querySelector('#stopwatchDoneBanner');
+  const doneTitle = container.querySelector('#stopwatchDoneTitle');
+  const doneDetail = container.querySelector('#stopwatchDoneDetail');
 
   function updateStopwatchUI() {
     const sw = store.state.stopwatch;
@@ -157,6 +169,15 @@ export function renderTodayView(container) {
     }
   }
 
+  /** Show the green ✓ done banner inside the stopwatch panel */
+  function showDoneBanner(title, mins) {
+    doneBanner.style.display = 'flex';
+    doneTitle.textContent = `✓ "${title}" خلصت!`;
+    doneDetail.textContent = `تم تسجيل ${mins} دقيقة بنجاح`;
+    // Auto-hide after 6 seconds
+    setTimeout(() => { doneBanner.style.display = 'none'; }, 6000);
+  }
+
   mainToggleBtn.addEventListener('click', () => {
     store.startStopwatch('custom-session', 'Deep Work Focus Session', 'task');
     Toast.info('⏱ Stopwatch started!');
@@ -177,20 +198,22 @@ export function renderTodayView(container) {
   finishBtn.addEventListener('click', async () => {
     const result = store.stopStopwatch();
     const mins = Math.max(1, result.elapsedMinutes);
+    const sessionTitle = result.title || 'Focus Session';
+
+    // ── Immediate visual feedback ──
+    updateStopwatchUI();
+    showDoneBanner(sessionTitle, mins);
 
     try {
       if (result.type === 'habit' && result.itemId) {
-        // Complete habit for today and log to tasks automatically!
         await api.completeHabitToday(result.itemId, {
           durationMinutes: mins,
           elapsedSeconds: result.elapsedSeconds,
           notes: `Tracked live via Stopwatch on ${todayDate}`
         });
-        Toast.success(`🎉 Completed "${result.title}"! Logged ${mins}m to Tasks page.`);
       } else {
-        // Log generic task / session
         await api.createTask({
-          title: result.title || 'Completed Focus Session',
+          title: sessionTitle,
           description: `Finished via Stopwatch. Tracked duration: ${mins} minutes.`,
           dueDate: todayDate,
           priority: 'high',
@@ -200,17 +223,15 @@ export function renderTodayView(container) {
           actualMinutes: mins
         });
         await api.logTimeSession({
-          activityName: result.title || 'Focus Session',
+          activityName: sessionTitle,
           durationMinutes: mins,
           notes: 'Completed from Today\'s Focus stopwatch'
         });
-        Toast.success(`🎉 Saved session (${mins}m) to Tasks page!`);
       }
       await store.refreshAll();
     } catch (err) {
       Toast.error('Could not save session: ' + err.message);
     }
-    updateStopwatchUI();
   });
 
   resetBtn.addEventListener('click', () => {
@@ -343,14 +364,30 @@ export function renderTodayView(container) {
         finishHabitBtn.textContent = '⏹ Finish & Log';
         finishHabitBtn.addEventListener('click', async () => {
           const res = store.stopStopwatch();
-          await api.completeHabitToday(habit.id, {
-            durationMinutes: res.elapsedMinutes,
-            elapsedSeconds: res.elapsedSeconds
-          });
-          Toast.success(`✓ Finished "${habit.name}"! Logged ${res.elapsedMinutes}m to Tasks page.`);
-          await store.refreshAll();
+          const mins = Math.max(1, res.elapsedMinutes);
+
+          // ── Immediate visual: replace action row with ✓ done badge ──
+          actions.innerHTML = `
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
+              background:rgba(80,220,130,0.15);border:1px solid rgba(80,220,130,0.4);
+              border-radius:20px;font-size:12px;font-weight:700;color:var(--green);">
+              ✓ خلصت! (${mins}m logged)
+            </span>`;
+          card.style.background = 'rgba(80,220,130,0.06)';
+          card.style.borderColor = 'rgba(80,220,130,0.35)';
           updateStopwatchUI();
-          renderTodayHabits();
+          showDoneBanner(habit.name, mins);
+
+          try {
+            await api.completeHabitToday(habit.id, {
+              durationMinutes: mins,
+              elapsedSeconds: res.elapsedSeconds
+            });
+            await store.refreshAll();
+            renderTodayHabits();
+          } catch (err) {
+            Toast.error('Could not save: ' + err.message);
+          }
         });
 
         actions.append(liveIndicator, pauseResumeBtn, finishHabitBtn);
