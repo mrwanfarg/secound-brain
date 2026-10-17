@@ -1,8 +1,10 @@
 import { api } from './api.js';
+import { auth } from './auth.js';
 
 class Store {
   constructor() {
     this.state = {
+      user: null,
       currentPage: 'Dashboard',
       tasks: [],
       projects: [],
@@ -71,6 +73,13 @@ class Store {
     api.onStatusChange(online => {
       this.setState({ isOnline: online });
     });
+
+    auth.onAuthChange(async user => {
+      this.setState({ user });
+      await this.refreshAll();
+    });
+
+    await auth.init();
     await this.refreshAll();
   }
 

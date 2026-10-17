@@ -11,6 +11,8 @@ import { renderGoalsView } from './views/goalsView.js';
 import { renderNotesView } from './views/notesView.js';
 import { renderInsightsView } from './views/insightsView.js';
 import { renderSettingsView } from './views/settingsView.js';
+import { AuthModal } from './components/AuthModal.js';
+import { auth } from './auth.js';
 
 const PAGE_META = {
   Dashboard: {
@@ -104,6 +106,76 @@ class App {
         text.textContent = isOnline ? 'Online (API Active)' : 'Local Mode';
       }
     });
+
+    // Update user profile avatar and actions in sidebar & mobile header
+    store.subscribe('user', user => this.renderUserProfile(user));
+    this.renderUserProfile(store.state.user);
+  }
+
+  renderUserProfile(user) {
+    const container = document.getElementById('sidebarProfileSection');
+    const mobileBtn = document.getElementById('mobileAuthBtn');
+
+    if (user) {
+      const initial = (user.name || user.email || 'U')[0].toUpperCase();
+      if (container) {
+        container.innerHTML = `
+          <div class="avatar" style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff; font-weight: 800; border: 1px solid rgba(255,255,255,0.2);">
+            ${initial}
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="profile-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;">
+              <span>${user.name || user.email.split('@')[0]}</span>
+              ${user.isCloud ? '<span title="Cloud Synchronized" style="font-size: 11px;">☁</span>' : ''}
+            </div>
+            <div class="profile-role" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${user.email}
+            </div>
+          </div>
+          <button class="btn btn-icon btn-secondary" id="sidebarLogoutBtn" title="Sign Out" style="width: 28px; height: 28px; font-size: 13px; color: var(--muted); border-radius: 6px;">
+            ⎋
+          </button>
+        `;
+
+        container.querySelector('#sidebarLogoutBtn')?.addEventListener('click', async e => {
+          e.stopPropagation();
+          await auth.signOut();
+          Toast.info('Signed out of workspace.');
+        });
+
+        container.onclick = e => {
+          if (!e.target.closest('#sidebarLogoutBtn')) {
+            this.navigateTo('Settings');
+          }
+        };
+      }
+
+      if (mobileBtn) {
+        mobileBtn.innerHTML = `👤 ${initial}`;
+        mobileBtn.title = user.email;
+        mobileBtn.onclick = () => {
+          this.navigateTo('Settings');
+        };
+      }
+    } else {
+      if (container) {
+        container.innerHTML = `
+          <button type="button" class="btn btn-primary" id="sidebarAuthBtn" style="width: 100%; font-size: 11px; padding: 9px 12px; gap: 6px; box-shadow: 0 4px 14px rgba(155, 123, 255, 0.25);">
+            ⚡ Sign In / Register
+          </button>
+        `;
+        container.querySelector('#sidebarAuthBtn')?.addEventListener('click', () => {
+          AuthModal.open();
+        });
+      }
+
+      if (mobileBtn) {
+        mobileBtn.innerHTML = '⚡ Sign In';
+        mobileBtn.onclick = () => {
+          AuthModal.open();
+        };
+      }
+    }
   }
 
   applyTheme() {

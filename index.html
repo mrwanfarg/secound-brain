@@ -16,6 +16,9 @@
   <link rel="stylesheet" href="./frontend/css/base.css">
   <link rel="stylesheet" href="./frontend/css/components.css">
   <link rel="stylesheet" href="./frontend/css/pages.css">
+
+  <!-- Supabase Cloud Multi-User Realtime Database Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <!-- Mobile Header Bar -->
@@ -23,7 +26,12 @@
     <div style="display: flex; align-items: center; gap: 8px;">
       <span style="font-weight: 800; color: var(--violet); font-size: 16px;">⚡ Second Brain</span>
     </div>
-    <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button class="btn btn-small btn-secondary" id="mobileAuthBtn" style="padding: 4px 10px; font-size: 11px;">
+        ⚡ Account
+      </button>
+      <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
+    </div>
   </header>
 
   <div class="app">
@@ -93,9 +101,9 @@
           <span id="sidebarServerText">Online (API Active)</span>
         </div>
 
-        <div class="profile">
+        <div class="profile" id="sidebarProfileSection">
           <div class="avatar">⚡</div>
-          <div>
+          <div style="flex: 1; min-width: 0;">
             <div class="profile-name">Command Workspace</div>
             <div class="profile-role">Full-Stack Local & Cloud</div>
           </div>

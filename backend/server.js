@@ -459,9 +459,65 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     name: 'Second Brain All-in-One API',
-    version: '2.1.0',
+    version: '2.2.0',
     timestamp: new Date().toISOString()
   });
+});
+
+/* ============================================================================
+   4.5. AUTHENTICATION & MULTI-USER API ROUTES
+   ============================================================================ */
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Valid email address is required' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const users = db.getAll('users');
+    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    const newUser = db.create('users', {
+      name: (name || '').trim() || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      password,
+      createdAt: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      user: { id: newUser.id, name: newUser.name, email: newUser.email }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const users = db.getAll('users');
+    const user = users.find(u => u.email.toLowerCase() === cleanEmail);
+
+    if (!user || user.password !== password) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    res.json({
+      success: true,
+      user: { id: user.id, name: user.name, email: user.email }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 /* ============================================================================

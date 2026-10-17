@@ -1,8 +1,13 @@
 /**
  * Second Brain API Client
- * Seamlessly talks to the Express REST API backend with resilient, full-featured
- * fallback to localStorage when running statically (e.g. GitHub Pages) or offline.
+ * Seamlessly talks to:
+ * 1. Supabase Cloud Database (Multi-user, cross-device real-time sync with PostgreSQL & RLS)
+ * 2. Express REST API backend (when deployed on Render / Railway / Localhost)
+ * 3. Resilient Local Storage (complete user-isolated workspace per account / email)
  */
+import { auth } from './auth.js';
+import { getSupabase } from './supabaseClient.js';
+import { config } from './config.js';
 
 function getTodayString(offsetDays = 0) {
   const d = new Date();
@@ -28,15 +33,37 @@ function getTodayDayIndex() {
   return (date.getDay() + 1) % 7; // 0 = Saturday, 1 = Sunday, ..., 6 = Friday
 }
 
-// Initial demo seed data for new or offline workspaces
-function seedDefaultData(force = false) {
+// User-scoped LocalStorage Key generator to isolate data per account
+function getUserKey(entity) {
+  const userId = auth.getUserId();
+  return `secondBrain_${userId}_${entity}`;
+}
+
+// Ensure default starter template for new user accounts
+function seedUserStarterData(userId, force = false) {
   if (typeof localStorage === 'undefined') return;
-  if (!force && localStorage.getItem('secondBrain_initialized')) return;
+  const initKey = `secondBrain_${userId}_initialized`;
+  if (!force && localStorage.getItem(initKey)) return;
+
+  // If this is the main legacy user and data exists in un-namespaced keys, migrate it over
+  const legacyTasks = localStorage.getItem('secondBrain_tasks');
+  if (legacyTasks && !force) {
+    try {
+      localStorage.setItem(`secondBrain_${userId}_tasks`, legacyTasks);
+      localStorage.setItem(`secondBrain_${userId}_projects`, localStorage.getItem('secondBrain_projects') || '[]');
+      localStorage.setItem(`secondBrain_${userId}_weekly`, localStorage.getItem('secondBrain_weekly') || '[]');
+      localStorage.setItem(`secondBrain_${userId}_notes`, localStorage.getItem('secondBrain_notes') || '[]');
+      localStorage.setItem(`secondBrain_${userId}_timers`, localStorage.getItem('secondBrain_timers') || '[]');
+      localStorage.setItem(`secondBrain_${userId}_intention`, localStorage.getItem('secondBrain_intention') || 'Focus deeply on top priorities.');
+      localStorage.setItem(initKey, 'true');
+      return;
+    } catch {}
+  }
 
   const initialTasks = [
     {
-      id: 'task-1',
-      title: 'Review Q4 Strategic Roadmap & Task Schedule',
+      id: `task-1-${Date.now()}`,
+      title: 'Review Strategic Roadmap & Task Schedule',
       description: 'Align upcoming product milestones and prioritize high-impact deliverables.',
       dueDate: getTodayString(0),
       dueTime: '10:00',
@@ -51,9 +78,9 @@ function seedDefaultData(force = false) {
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
     },
     {
-      id: 'task-2',
-      title: 'Complete System Architecture Documentation',
-      description: 'Detail data models, API endpoints, and component interaction hierarchy.',
+      id: `task-2-${Date.now()}`,
+      title: 'Complete Personal System Goals',
+      description: 'Detail daily habits, high-yield tasks, and weekly targets.',
       dueDate: getTodayString(0),
       dueTime: '14:30',
       timeSlot: 'afternoon',
@@ -67,32 +94,16 @@ function seedDefaultData(force = false) {
       createdAt: new Date(Date.now() - 3600000 * 12).toISOString()
     },
     {
-      id: 'task-3',
-      title: 'Team Sync on Sprint Deliverables',
-      description: 'Quick check-in on project blockers and weekly habit progress.',
-      dueDate: getTodayString(0),
-      dueTime: '16:00',
-      timeSlot: 'afternoon',
-      priority: 'medium',
-      status: 'pending',
-      category: 'Meeting',
-      projectId: 'proj-2',
-      estimatedMinutes: 30,
-      actualMinutes: 0,
-      completed: false,
-      createdAt: new Date(Date.now() - 3600000 * 6).toISOString()
-    },
-    {
-      id: 'task-4',
-      title: 'Gym Workout & 5km Cardio Run',
-      description: 'Upper body hypertrophy training followed by zone-2 cardio session.',
+      id: `task-3-${Date.now()}`,
+      title: 'Gym Workout & Mobility Routine',
+      description: 'Strength training routine followed by cardio session.',
       dueDate: getTodayString(0),
       dueTime: '18:30',
       timeSlot: 'evening',
       priority: 'high',
       status: 'completed',
       category: 'Health',
-      projectId: 'proj-3',
+      projectId: 'proj-2',
       estimatedMinutes: 75,
       actualMinutes: 75,
       completed: true,
@@ -105,69 +116,50 @@ function seedDefaultData(force = false) {
     {
       id: 'proj-1',
       name: 'Second Brain Command Center',
-      description: 'Next-generation personal operating system for task scheduling, habits, and knowledge capture.',
+      description: 'Personal productivity workspace for task scheduling, habits, and knowledge capture.',
       dueDate: getTodayString(14),
       status: 'In Progress',
       progress: 65,
       color: '#9b7bff',
-      createdAt: new Date(Date.now() - 3600000 * 24 * 7).toISOString()
+      createdAt: new Date().toISOString()
     },
     {
       id: 'proj-2',
-      name: 'Q4 Product Roadmap Delivery',
-      description: 'Shipping core features, client onboarding materials, and performance optimizations.',
-      dueDate: getTodayString(30),
-      status: 'In Progress',
-      progress: 40,
-      color: '#74d6a0',
-      createdAt: new Date(Date.now() - 3600000 * 24 * 14).toISOString()
-    },
-    {
-      id: 'proj-3',
-      name: 'Peak Physical Conditioning',
+      name: 'Physical Conditioning & Wellness',
       description: 'Daily discipline tracker, strength routines, and nutrition scheduling.',
       dueDate: getTodayString(60),
       status: 'In Progress',
-      progress: 80,
+      progress: 75,
       color: '#ff9858',
-      createdAt: new Date(Date.now() - 3600000 * 24 * 30).toISOString()
+      createdAt: new Date().toISOString()
     }
   ];
 
   const initialWeeklyGoals = [
     {
-      id: 'goal-1',
+      id: `goal-1-${Date.now()}`,
       name: 'Morning Workout & Mobility',
       target: 5,
-      days: [true, true, true, true, false, false, false],
+      days: [true, true, true, false, false, false, false],
       scheduledDays: [0, 1, 2, 3, 4, 5, 6],
       weekKey: getSaturdayWeekKey(),
       createdAt: new Date().toISOString()
     },
     {
-      id: 'goal-2',
+      id: `goal-2-${Date.now()}`,
       name: 'Deep Work Focus Sessions (2hr+)',
       target: 5,
-      days: [true, true, true, false, false, false, false],
+      days: [true, true, false, false, false, false, false],
       scheduledDays: [0, 1, 2, 3, 4],
       weekKey: getSaturdayWeekKey(),
       createdAt: new Date().toISOString()
     },
     {
-      id: 'goal-3',
+      id: `goal-3-${Date.now()}`,
       name: 'Read 20 Pages Non-fiction',
       target: 6,
-      days: [true, true, true, true, true, false, false],
-      scheduledDays: [0, 1, 2, 3, 4, 5],
-      weekKey: getSaturdayWeekKey(),
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'goal-4',
-      name: 'Review Daily Intentions & Retrospective',
-      target: 7,
       days: [true, true, true, true, false, false, false],
-      scheduledDays: [0, 1, 2, 3, 4, 5, 6],
+      scheduledDays: [0, 1, 2, 3, 4, 5],
       weekKey: getSaturdayWeekKey(),
       createdAt: new Date().toISOString()
     }
@@ -175,49 +167,30 @@ function seedDefaultData(force = false) {
 
   const initialNotes = [
     {
-      id: 'note-1',
-      title: 'Scheduling Strategy: Time Blocking & Energy Cycles',
-      content: 'Cluster demanding creative & technical tasks during morning peak focus (8:30am - 12:00pm). Leave meetings, administrative check-ins, and gym for afternoon/evening.',
-      tags: ['productivity', 'scheduling', 'strategy'],
+      id: `note-1-${Date.now()}`,
+      title: 'Time Blocking & Energy Scheduling',
+      content: 'Cluster demanding technical & creative tasks during morning peak focus. Leave meetings, admin check-ins, and gym for afternoon/evening.',
+      tags: ['productivity', 'scheduling'],
       pinned: true,
-      createdAt: new Date(Date.now() - 3600000 * 48).toISOString()
-    },
-    {
-      id: 'note-2',
-      title: 'Second Brain Principles: PARA Framework',
-      content: 'Projects (active goals with deadlines), Areas (standards to maintain), Resources (topics of ongoing interest), Archives (inactive completed items).',
-      tags: ['organization', 'second-brain'],
-      pinned: true,
-      createdAt: new Date(Date.now() - 3600000 * 72).toISOString()
+      createdAt: new Date().toISOString()
     }
   ];
 
-  const initialTimers = [
-    {
-      id: 'time-1',
-      activityName: 'Architecture Planning',
-      taskId: 'task-1',
-      durationMinutes: 30,
-      startTime: new Date(Date.now() - 3600000 * 4).toISOString(),
-      endTime: new Date(Date.now() - 3600000 * 3.5).toISOString(),
-      notes: 'Finalized database schema and API structure'
-    }
-  ];
-
-  localStorage.setItem('secondBrain_tasks', JSON.stringify(initialTasks));
-  localStorage.setItem('secondBrain_projects', JSON.stringify(initialProjects));
-  localStorage.setItem('secondBrain_weekly', JSON.stringify(initialWeeklyGoals));
-  localStorage.setItem('secondBrain_notes', JSON.stringify(initialNotes));
-  localStorage.setItem('secondBrain_timers', JSON.stringify(initialTimers));
-  localStorage.setItem('secondBrain_intention', 'Execute high-impact goals with single-tasking focus and discipline.');
-  localStorage.setItem('secondBrain_initialized', 'true');
+  localStorage.setItem(`secondBrain_${userId}_tasks`, JSON.stringify(initialTasks));
+  localStorage.setItem(`secondBrain_${userId}_projects`, JSON.stringify(initialProjects));
+  localStorage.setItem(`secondBrain_${userId}_weekly`, JSON.stringify(initialWeeklyGoals));
+  localStorage.setItem(`secondBrain_${userId}_notes`, JSON.stringify(initialNotes));
+  localStorage.setItem(`secondBrain_${userId}_timers`, JSON.stringify([]));
+  localStorage.setItem(`secondBrain_${userId}_intention`, 'Execute high-impact goals with single-tasking discipline.');
+  localStorage.setItem(initKey, 'true');
 }
 
-// Sync habit toggle with tasks collection
-function syncHabitWithTodayTasks(habitName, isCompleted) {
+// Helper to sync habit completion with user's today tasks
+function syncHabitWithUserTasks(habitName, isCompleted) {
   if (typeof localStorage === 'undefined') return;
+  const key = getUserKey('tasks');
   const todayDate = getTodayString(0);
-  const tasks = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
+  const tasks = JSON.parse(localStorage.getItem(key) || '[]');
   let task = tasks.find(t => t.title && t.title.toLowerCase() === habitName.toLowerCase() && t.dueDate === todayDate);
 
   if (isCompleted) {
@@ -245,34 +218,21 @@ function syncHabitWithTodayTasks(habitName, isCompleted) {
     task.completed = false;
     task.completedAt = null;
   }
-  localStorage.setItem('secondBrain_tasks', JSON.stringify(tasks));
+  localStorage.setItem(key, JSON.stringify(tasks));
 }
-
-const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
-const customApi = typeof localStorage !== 'undefined' ? localStorage.getItem('secondBrain_custom_api_url') : null;
-
-// Determine API Base: If on GitHub Pages without custom backend, don't ping /api on GitHub Pages
-const API_BASE = customApi || (
-  isGitHubPages
-    ? ''
-    : (typeof window !== 'undefined' && window.location.origin.startsWith('http')
-        ? `${window.location.origin}/api`
-        : 'http://localhost:3000/api')
-);
 
 class ApiClient {
   constructor() {
-    this.isOnline = !isGitHubPages && Boolean(API_BASE);
     this.statusListeners = [];
+    this.isOnline = true;
 
-    // Ensure seed data exists for standalone / GitHub Pages usage
-    seedDefaultData(false);
+    // Check user auth and seed starter workspace if needed
+    auth.onAuthChange(user => {
+      const userId = user ? user.id : 'guest';
+      seedUserStarterData(userId, false);
+    });
 
-    if (API_BASE) {
-      this.checkConnection();
-    } else {
-      this.notifyStatus(false);
-    }
+    seedUserStarterData(auth.getUserId(), false);
   }
 
   onStatusChange(fn) {
@@ -285,703 +245,944 @@ class ApiClient {
   }
 
   async checkConnection() {
-    if (!API_BASE) {
-      this.notifyStatus(false);
-      return false;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
-      const online = res.ok;
-      this.notifyStatus(online);
-      return online;
-    } catch {
-      this.notifyStatus(false);
-      return false;
-    }
-  }
-
-  // Generic request with seamless fallback to localStorage
-  async request(endpoint, options = {}, fallbackAction = null) {
-    // If we have no remote backend or are already known to be offline, execute fallback immediately
-    if (!API_BASE || (!this.isOnline && typeof fallbackAction === 'function')) {
-      if (typeof fallbackAction === 'function') {
-        return fallbackAction();
+    if (config.isSupabaseConfigured) {
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          const { error } = await supabase.from('tasks').select('id').limit(1);
+          const ok = !error || error.code === 'PGRST116' || !error.message.includes('FetchError');
+          this.notifyStatus(ok);
+          return ok;
+        } catch {
+          this.notifyStatus(false);
+          return false;
+        }
       }
-      return { success: true };
     }
 
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {})
-        },
-        ...options,
-        signal: AbortSignal.timeout(5000)
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Request failed with status ${res.status}`);
+    if (config.customApiUrl) {
+      try {
+        const res = await fetch(`${config.customApiUrl}/health`, { signal: AbortSignal.timeout(2000) });
+        const ok = res.ok;
+        this.notifyStatus(ok);
+        return ok;
+      } catch {
+        this.notifyStatus(false);
+        return false;
       }
-
-      this.notifyStatus(true);
-      return await res.json();
-    } catch (err) {
-      this.notifyStatus(false);
-      if (typeof fallbackAction === 'function') {
-        return fallbackAction();
-      }
-      throw err;
     }
+
+    // Default standalone mode
+    this.notifyStatus(false);
+    return false;
   }
 
   /* ------------------- TASKS ------------------- */
   async getTasks(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const url = `/tasks${query ? `?${query}` : ''}`;
-    return this.request(url, { method: 'GET' }, () => {
-      const raw = localStorage.getItem('secondBrain_tasks') || '[]';
-      let tasks = JSON.parse(raw);
-      if (params.dueDate) {
-        tasks = tasks.filter(t => t.dueDate === params.dueDate);
+    // 1. Supabase Cloud Sync
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
+        if (params.dueDate) query = query.eq('due_date', params.dueDate);
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
+          const list = data.map(t => ({
+            id: t.id,
+            title: t.title,
+            description: t.description || '',
+            dueDate: t.due_date,
+            dueTime: t.due_time,
+            timeSlot: t.time_slot,
+            priority: t.priority,
+            status: t.status,
+            category: t.category,
+            projectId: t.project_id,
+            estimatedMinutes: t.estimated_minutes,
+            actualMinutes: t.actual_minutes,
+            completed: Boolean(t.completed),
+            completedAt: t.completed_at,
+            createdAt: t.created_at
+          }));
+          return { success: true, count: list.length, data: list };
+        }
+      } catch (err) {
+        console.warn('Supabase getTasks fallback to local:', err);
       }
-      return { success: true, count: tasks.length, data: tasks };
-    });
+    }
+
+    // 2. User-isolated LocalStorage
+    const key = getUserKey('tasks');
+    const raw = localStorage.getItem(key) || '[]';
+    let tasks = JSON.parse(raw);
+    if (params.dueDate) {
+      tasks = tasks.filter(t => t.dueDate === params.dueDate);
+    }
+    return { success: true, count: tasks.length, data: tasks };
   }
 
   async createTask(taskData) {
-    return this.request('/tasks', {
-      method: 'POST',
-      body: JSON.stringify(taskData)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      const newTask = {
-        ...taskData,
-        id: `local-${Date.now()}`,
-        completed: Boolean(taskData.completed),
-        actualMinutes: Number(taskData.actualMinutes) || 0,
-        createdAt: new Date().toISOString()
-      };
-      raw.unshift(newTask);
-      localStorage.setItem('secondBrain_tasks', JSON.stringify(raw));
-      return { success: true, data: newTask };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    const taskId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    if (supabase && user?.isCloud) {
+      try {
+        const { data, error } = await supabase.from('tasks').insert({
+          id: taskId,
+          user_id: user.id,
+          title: taskData.title,
+          description: taskData.description || '',
+          due_date: taskData.dueDate,
+          due_time: taskData.dueTime || '10:00',
+          time_slot: taskData.timeSlot || 'morning',
+          priority: taskData.priority || 'medium',
+          status: taskData.status || 'pending',
+          category: taskData.category || 'General',
+          project_id: taskData.projectId || null,
+          estimated_minutes: Number(taskData.estimatedMinutes) || 30,
+          actual_minutes: Number(taskData.actualMinutes) || 0,
+          completed: Boolean(taskData.completed)
+        }).select().single();
+
+        if (!error && data) {
+          return {
+            success: true,
+            data: {
+              ...taskData,
+              id: data.id,
+              createdAt: data.created_at
+            }
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase createTask error:', err);
+      }
+    }
+
+    const key = getUserKey('tasks');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const newTask = {
+      ...taskData,
+      id: taskId,
+      completed: Boolean(taskData.completed),
+      actualMinutes: Number(taskData.actualMinutes) || 0,
+      createdAt: new Date().toISOString()
+    };
+    raw.unshift(newTask);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, data: newTask };
   }
 
   async updateTask(id, updates) {
-    return this.request(`/tasks/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      const idx = raw.findIndex(t => t.id === id);
-      if (idx !== -1) {
-        raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
-        localStorage.setItem('secondBrain_tasks', JSON.stringify(raw));
-        return { success: true, data: raw[idx] };
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        const payload = {};
+        if (updates.title !== undefined) payload.title = updates.title;
+        if (updates.description !== undefined) payload.description = updates.description;
+        if (updates.dueDate !== undefined) payload.due_date = updates.dueDate;
+        if (updates.dueTime !== undefined) payload.due_time = updates.dueTime;
+        if (updates.timeSlot !== undefined) payload.time_slot = updates.timeSlot;
+        if (updates.priority !== undefined) payload.priority = updates.priority;
+        if (updates.status !== undefined) payload.status = updates.status;
+        if (updates.category !== undefined) payload.category = updates.category;
+        if (updates.projectId !== undefined) payload.project_id = updates.projectId;
+        if (updates.actualMinutes !== undefined) payload.actual_minutes = updates.actualMinutes;
+        if (updates.completed !== undefined) payload.completed = updates.completed;
+        payload.updated_at = new Date().toISOString();
+
+        const { data, error } = await supabase.from('tasks').update(payload).eq('id', id).select().single();
+        if (!error && data) {
+          return { success: true, data: { ...updates, id } };
+        }
+      } catch (err) {
+        console.warn('Supabase updateTask error:', err);
       }
-      throw new Error('Task not found');
-    });
+    }
+
+    const key = getUserKey('tasks');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const idx = raw.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
+      localStorage.setItem(key, JSON.stringify(raw));
+      return { success: true, data: raw[idx] };
+    }
+    throw new Error('Task not found');
   }
 
   async toggleTask(id) {
-    return this.request(`/tasks/${id}/toggle`, {
-      method: 'PATCH'
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      const idx = raw.findIndex(t => t.id === id);
-      if (idx !== -1) {
-        raw[idx].completed = !raw[idx].completed;
-        raw[idx].status = raw[idx].completed ? 'completed' : 'pending';
-        raw[idx].completedAt = raw[idx].completed ? new Date().toISOString() : null;
-        localStorage.setItem('secondBrain_tasks', JSON.stringify(raw));
-        return { success: true, data: raw[idx] };
+    const key = getUserKey('tasks');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const idx = raw.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      const nextCompleted = !raw[idx].completed;
+      raw[idx].completed = nextCompleted;
+      raw[idx].status = nextCompleted ? 'completed' : 'pending';
+      raw[idx].completedAt = nextCompleted ? new Date().toISOString() : null;
+      localStorage.setItem(key, JSON.stringify(raw));
+
+      const supabase = getSupabase();
+      const user = auth.getCurrentUser();
+      if (supabase && user?.isCloud) {
+        supabase.from('tasks').update({
+          completed: nextCompleted,
+          status: raw[idx].status,
+          completed_at: raw[idx].completedAt
+        }).eq('id', id).catch(() => {});
       }
-      throw new Error('Task not found');
-    });
+
+      return { success: true, data: raw[idx] };
+    }
+    throw new Error('Task not found');
   }
 
   async deleteTask(id) {
-    return this.request(`/tasks/${id}`, {
-      method: 'DELETE'
-    }, () => {
-      let raw = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      raw = raw.filter(t => t.id !== id);
-      localStorage.setItem('secondBrain_tasks', JSON.stringify(raw));
-      return { success: true, message: 'Deleted locally' };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('tasks').delete().eq('id', id).catch(() => {});
+    }
+
+    const key = getUserKey('tasks');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw = raw.filter(t => t.id !== id);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, message: 'Deleted successfully' };
   }
 
   async rescheduleOverdue() {
-    return this.request('/tasks/reschedule-overdue', {
-      method: 'POST'
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      const today = getTodayString(0);
-      let count = 0;
-      raw.forEach(t => {
-        if (!t.completed && t.dueDate && t.dueDate < today) {
-          t.dueDate = today;
-          t.updatedAt = new Date().toISOString();
-          count++;
-        }
-      });
-      localStorage.setItem('secondBrain_tasks', JSON.stringify(raw));
-      return { success: true, count, message: `Rescheduled ${count} overdue tasks to today.` };
+    const key = getUserKey('tasks');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const today = getTodayString(0);
+    let count = 0;
+    raw.forEach(t => {
+      if (!t.completed && t.dueDate && t.dueDate < today) {
+        t.dueDate = today;
+        t.updatedAt = new Date().toISOString();
+        count++;
+      }
     });
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, count, message: `Rescheduled ${count} overdue tasks to today.` };
   }
 
   /* ------------------- PROJECTS ------------------- */
   async getProjects() {
-    return this.request('/projects', { method: 'GET' }, () => {
-      const raw = localStorage.getItem('secondBrain_projects') || '[]';
-      return { success: true, data: JSON.parse(raw) };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+        if (!error && Array.isArray(data)) {
+          return {
+            success: true,
+            data: data.map(p => ({
+              id: p.id,
+              name: p.name,
+              description: p.description || '',
+              dueDate: p.due_date,
+              status: p.status,
+              progress: p.progress,
+              color: p.color,
+              createdAt: p.created_at
+            }))
+          };
+        }
+      } catch (e) {}
+    }
+
+    const key = getUserKey('projects');
+    const raw = localStorage.getItem(key) || '[]';
+    return { success: true, data: JSON.parse(raw) };
   }
 
   async createProject(projectData) {
-    return this.request('/projects', {
-      method: 'POST',
-      body: JSON.stringify(projectData)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_projects') || '[]');
-      const newProj = {
-        ...projectData,
-        id: `local-proj-${Date.now()}`,
-        progress: Number(projectData.progress) || 0,
-        createdAt: new Date().toISOString()
-      };
-      raw.unshift(newProj);
-      localStorage.setItem('secondBrain_projects', JSON.stringify(raw));
-      return { success: true, data: newProj };
-    });
+    const id = `proj-${Date.now()}`;
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+
+    if (supabase && user?.isCloud) {
+      try {
+        await supabase.from('projects').insert({
+          id,
+          user_id: user.id,
+          name: projectData.name,
+          description: projectData.description || '',
+          due_date: projectData.dueDate,
+          status: projectData.status || 'In Progress',
+          progress: Number(projectData.progress) || 0,
+          color: projectData.color || '#9b7bff'
+        });
+      } catch (e) {}
+    }
+
+    const key = getUserKey('projects');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const newProj = {
+      ...projectData,
+      id,
+      progress: Number(projectData.progress) || 0,
+      createdAt: new Date().toISOString()
+    };
+    raw.unshift(newProj);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, data: newProj };
   }
 
   async updateProject(id, updates) {
-    return this.request(`/projects/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_projects') || '[]');
-      const idx = raw.findIndex(p => p.id === id);
-      if (idx !== -1) {
-        raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
-        localStorage.setItem('secondBrain_projects', JSON.stringify(raw));
-        return { success: true, data: raw[idx] };
+    const key = getUserKey('projects');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const idx = raw.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
+      localStorage.setItem(key, JSON.stringify(raw));
+
+      const supabase = getSupabase();
+      const user = auth.getCurrentUser();
+      if (supabase && user?.isCloud) {
+        supabase.from('projects').update({
+          name: updates.name,
+          description: updates.description,
+          progress: updates.progress,
+          status: updates.status,
+          color: updates.color
+        }).eq('id', id).catch(() => {});
       }
-      throw new Error('Project not found');
-    });
+
+      return { success: true, data: raw[idx] };
+    }
+    throw new Error('Project not found');
   }
 
   async deleteProject(id) {
-    return this.request(`/projects/${id}`, {
-      method: 'DELETE'
-    }, () => {
-      let raw = JSON.parse(localStorage.getItem('secondBrain_projects') || '[]');
-      raw = raw.filter(p => p.id !== id);
-      localStorage.setItem('secondBrain_projects', JSON.stringify(raw));
-      return { success: true, message: 'Project deleted' };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('projects').delete().eq('id', id).catch(() => {});
+    }
+
+    const key = getUserKey('projects');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw = raw.filter(p => p.id !== id);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, message: 'Project deleted' };
   }
 
   /* ------------------- WEEKLY GOALS & HABITS ------------------- */
   async getWeeklyGoals() {
-    return this.request('/weekly', { method: 'GET' }, () => {
-      const currentWeekKey = getSaturdayWeekKey();
-      let goals = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
+    const currentWeekKey = getSaturdayWeekKey();
+    const key = getUserKey('weekly');
 
-      // Saturday rollover check: If weekKey differs, reset checks for the fresh week
-      let modified = false;
-      goals.forEach(goal => {
-        if (goal.weekKey !== currentWeekKey) {
-          goal.days = [false, false, false, false, false, false, false];
-          goal.weekKey = currentWeekKey;
-          modified = true;
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    let goals = [];
+
+    if (supabase && user?.isCloud) {
+      try {
+        const { data, error } = await supabase.from('weekly_goals').select('*').order('created_at', { ascending: true });
+        if (!error && Array.isArray(data)) {
+          goals = data.map(g => ({
+            id: g.id,
+            name: g.name,
+            target: g.target,
+            days: Array.isArray(g.days) ? g.days : [false, false, false, false, false, false, false],
+            scheduledDays: Array.isArray(g.scheduled_days) ? g.scheduled_days : [0, 1, 2, 3, 4, 5, 6],
+            weekKey: g.week_key,
+            createdAt: g.created_at
+          }));
         }
-      });
-      if (modified) {
-        localStorage.setItem('secondBrain_weekly', JSON.stringify(goals));
+      } catch (e) {}
+    }
+
+    if (goals.length === 0) {
+      goals = JSON.parse(localStorage.getItem(key) || '[]');
+    }
+
+    // Saturday rollover check: If weekKey differs, reset checks for the fresh week
+    let modified = false;
+    goals.forEach(goal => {
+      if (goal.weekKey !== currentWeekKey) {
+        goal.days = [false, false, false, false, false, false, false];
+        goal.weekKey = currentWeekKey;
+        modified = true;
       }
+    });
+    if (modified) {
+      localStorage.setItem(key, JSON.stringify(goals));
+      if (supabase && user?.isCloud) {
+        goals.forEach(g => {
+          supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).catch(() => {});
+        });
+      }
+    }
 
-      // Compute progress stats
-      let totalTarget = 0;
-      let totalCompleted = 0;
+    let totalTarget = 0;
+    let totalCompleted = 0;
 
-      const list = goals.map(goal => {
-        const days = Array.isArray(goal.days) ? goal.days : [false, false, false, false, false, false, false];
-        const completedDays = days.filter(Boolean).length;
-        const target = Number(goal.target) || 1;
-        const progress = Math.min(100, Math.round((completedDays / target) * 100));
+    const list = goals.map(goal => {
+      const days = Array.isArray(goal.days) ? goal.days : [false, false, false, false, false, false, false];
+      const completedDays = days.filter(Boolean).length;
+      const target = Number(goal.target) || 1;
+      const progress = Math.min(100, Math.round((completedDays / target) * 100));
 
-        totalTarget += target;
-        totalCompleted += Math.min(completedDays, target);
-
-        return {
-          ...goal,
-          days,
-          completedDays,
-          progress
-        };
-      });
-
-      const overallProgress = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
+      totalTarget += target;
+      totalCompleted += Math.min(completedDays, target);
 
       return {
-        success: true,
-        weekKey: currentWeekKey,
-        todayIndex: getTodayDayIndex(),
-        stats: {
-          totalTarget,
-          totalCompleted,
-          overallProgress
-        },
-        data: list
+        ...goal,
+        days,
+        completedDays,
+        progress
       };
     });
+
+    const overallProgress = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
+
+    return {
+      success: true,
+      weekKey: currentWeekKey,
+      todayIndex: getTodayDayIndex(),
+      stats: {
+        totalTarget,
+        totalCompleted,
+        overallProgress
+      },
+      data: list
+    };
   }
 
   async getTodayHabits() {
-    return this.request('/weekly/today', { method: 'GET' }, () => {
-      const todayIndex = getTodayDayIndex();
-      const todayDate = getTodayString(0);
-      const goals = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const tasks = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
+    const todayIndex = getTodayDayIndex();
+    const todayDate = getTodayString(0);
+    const goalsRes = await this.getWeeklyGoals();
+    const goals = goalsRes.data || [];
+    const tasksRes = await this.getTasks();
+    const tasks = tasksRes.data || [];
 
-      const todayHabits = goals.filter(g => {
-        const sched = Array.isArray(g.scheduledDays) && g.scheduledDays.length > 0
-          ? g.scheduledDays
-          : [0, 1, 2, 3, 4, 5, 6];
-        return sched.includes(todayIndex);
-      }).map(g => {
-        const days = Array.isArray(g.days) ? g.days : [false, false, false, false, false, false, false];
-        const isCompletedToday = Boolean(days[todayIndex]);
-        const linkedTask = tasks.find(t => t.title && t.title.toLowerCase() === g.name.toLowerCase() && t.dueDate === todayDate);
-
-        return {
-          ...g,
-          todayIndex,
-          isCompletedToday,
-          actualMinutesToday: linkedTask ? (linkedTask.actualMinutes || 0) : 0,
-          linkedTaskId: linkedTask ? linkedTask.id : null
-        };
-      });
+    const todayHabits = goals.filter(g => {
+      const sched = Array.isArray(g.scheduledDays) && g.scheduledDays.length > 0
+        ? g.scheduledDays
+        : [0, 1, 2, 3, 4, 5, 6];
+      return sched.includes(todayIndex);
+    }).map(g => {
+      const days = Array.isArray(g.days) ? g.days : [false, false, false, false, false, false, false];
+      const isCompletedToday = Boolean(days[todayIndex]);
+      const linkedTask = tasks.find(t => t.title && t.title.toLowerCase() === g.name.toLowerCase() && t.dueDate === todayDate);
 
       return {
-        success: true,
+        ...g,
         todayIndex,
-        todayDate,
-        count: todayHabits.length,
-        data: todayHabits
+        isCompletedToday,
+        actualMinutesToday: linkedTask ? (linkedTask.actualMinutes || 0) : 0,
+        linkedTaskId: linkedTask ? linkedTask.id : null
       };
     });
+
+    return {
+      success: true,
+      todayIndex,
+      todayDate,
+      count: todayHabits.length,
+      data: todayHabits
+    };
   }
 
   async createWeeklyGoal(data) {
-    return this.request('/weekly', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }, () => {
-      if (!data.name || !data.name.trim()) {
-        throw new Error('Goal name is required');
-      }
-      const raw = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const targetNum = Math.max(1, Math.min(7, parseInt(data.target, 10) || 5));
-      const scheduledDays = Array.isArray(data.scheduledDays) && data.scheduledDays.length > 0
-        ? data.scheduledDays
-        : [0, 1, 2, 3, 4, 5, 6];
+    if (!data.name || !data.name.trim()) {
+      throw new Error('Goal name is required');
+    }
 
-      const newGoal = {
-        id: `goal-${Date.now()}`,
-        name: data.name.trim(),
-        target: targetNum,
-        days: [false, false, false, false, false, false, false],
-        scheduledDays,
-        weekKey: getSaturdayWeekKey(),
-        createdAt: new Date().toISOString()
-      };
+    const id = `goal-${Date.now()}`;
+    const targetNum = Math.max(1, Math.min(7, parseInt(data.target, 10) || 5));
+    const scheduledDays = Array.isArray(data.scheduledDays) && data.scheduledDays.length > 0
+      ? data.scheduledDays
+      : [0, 1, 2, 3, 4, 5, 6];
+    const weekKey = getSaturdayWeekKey();
 
-      raw.push(newGoal);
-      localStorage.setItem('secondBrain_weekly', JSON.stringify(raw));
-      return { success: true, data: newGoal };
-    });
+    const newGoal = {
+      id,
+      name: data.name.trim(),
+      target: targetNum,
+      days: [false, false, false, false, false, false, false],
+      scheduledDays,
+      weekKey,
+      createdAt: new Date().toISOString()
+    };
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        await supabase.from('weekly_goals').insert({
+          id,
+          user_id: user.id,
+          name: newGoal.name,
+          target: targetNum,
+          days: newGoal.days,
+          scheduled_days: scheduledDays,
+          week_key: weekKey
+        });
+      } catch (e) {}
+    }
+
+    const key = getUserKey('weekly');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw.push(newGoal);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, data: newGoal };
   }
 
   async toggleWeeklyGoalDay(id, dayIndex, status) {
-    return this.request(`/weekly/${id}/toggle-day`, {
-      method: 'PATCH',
-      body: JSON.stringify({ dayIndex, status })
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const goal = raw.find(g => g.id === id);
-      if (!goal) throw new Error('Goal not found');
+    const key = getUserKey('weekly');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const goal = raw.find(g => g.id === id);
+    if (!goal) throw new Error('Goal not found');
 
-      if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
-      goal.days[dayIndex] = status !== undefined ? Boolean(status) : !goal.days[dayIndex];
-      localStorage.setItem('secondBrain_weekly', JSON.stringify(raw));
+    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+    goal.days[dayIndex] = status !== undefined ? Boolean(status) : !goal.days[dayIndex];
+    localStorage.setItem(key, JSON.stringify(raw));
 
-      // If the toggled day is TODAY, keep tasks collection in sync
-      const todayIdx = getTodayDayIndex();
-      if (Number(dayIndex) === todayIdx) {
-        syncHabitWithTodayTasks(goal.name, goal.days[dayIndex]);
-      }
+    const todayIdx = getTodayDayIndex();
+    if (Number(dayIndex) === todayIdx) {
+      syncHabitWithUserTasks(goal.name, goal.days[dayIndex]);
+    }
 
-      return { success: true, data: goal };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
+    }
+
+    return { success: true, data: goal };
   }
 
   async toggleHabitToday(id, status) {
-    return this.request(`/weekly/${id}/toggle-today`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status })
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const goal = raw.find(g => g.id === id);
-      if (!goal) throw new Error('Habit not found');
+    const key = getUserKey('weekly');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const goal = raw.find(g => g.id === id);
+    if (!goal) throw new Error('Habit not found');
 
-      const todayIndex = getTodayDayIndex();
-      if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
-      const nextState = status !== undefined ? Boolean(status) : !goal.days[todayIndex];
-      goal.days[todayIndex] = nextState;
-      localStorage.setItem('secondBrain_weekly', JSON.stringify(raw));
+    const todayIndex = getTodayDayIndex();
+    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+    const nextState = status !== undefined ? Boolean(status) : !goal.days[todayIndex];
+    goal.days[todayIndex] = nextState;
+    localStorage.setItem(key, JSON.stringify(raw));
 
-      syncHabitWithTodayTasks(goal.name, nextState);
-      return { success: true, isCompletedToday: nextState, goal, todayIndex };
-    });
+    syncHabitWithUserTasks(goal.name, nextState);
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
+    }
+
+    return { success: true, isCompletedToday: nextState, goal, todayIndex };
   }
 
   async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '' } = {}) {
-    return this.request(`/weekly/${id}/complete-today`, {
-      method: 'POST',
-      body: JSON.stringify({ durationMinutes, elapsedSeconds, notes })
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const goal = raw.find(g => g.id === id);
-      if (!goal) throw new Error('Habit not found');
+    const key = getUserKey('weekly');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const goal = raw.find(g => g.id === id);
+    if (!goal) throw new Error('Habit not found');
 
-      const todayIndex = getTodayDayIndex();
-      const todayDate = getTodayString(0);
-      const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
+    const todayIndex = getTodayDayIndex();
+    const todayDate = getTodayString(0);
+    const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
 
-      if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
-      goal.days[todayIndex] = true;
-      localStorage.setItem('secondBrain_weekly', JSON.stringify(raw));
+    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+    goal.days[todayIndex] = true;
+    localStorage.setItem(key, JSON.stringify(raw));
 
-      // Create or update task in tasks collection
-      const tasks = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
+    // Create or update task in tasks collection
+    const tasksKey = getUserKey('tasks');
+    const tasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
+    let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
 
-      if (task) {
-        task.completed = true;
-        task.completedAt = new Date().toISOString();
-        task.actualMinutes = (Number(task.actualMinutes) || 0) + actualMins;
-      } else {
-        task = {
-          id: `local-task-${Date.now()}`,
-          title: goal.name,
-          description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${actualMins} mins.`,
-          dueDate: todayDate,
-          dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          timeSlot: 'morning',
-          priority: 'high',
-          category: 'Habit',
-          completed: true,
-          completedAt: new Date().toISOString(),
-          estimatedMinutes: actualMins,
-          actualMinutes: actualMins,
-          createdAt: new Date().toISOString()
-        };
-        tasks.unshift(task);
-      }
-      localStorage.setItem('secondBrain_tasks', JSON.stringify(tasks));
-
-      // Log time session
-      const timers = JSON.parse(localStorage.getItem('secondBrain_timers') || '[]');
-      const session = {
-        id: `timer-${Date.now()}`,
-        activityName: goal.name,
-        taskId: task.id,
-        durationMinutes: actualMins,
-        startTime: new Date(Date.now() - actualMins * 60000).toISOString(),
-        endTime: new Date().toISOString(),
-        notes: notes || `Recorded via stopwatch in Today's Focus`,
+    if (task) {
+      task.completed = true;
+      task.completedAt = new Date().toISOString();
+      task.actualMinutes = (Number(task.actualMinutes) || 0) + actualMins;
+    } else {
+      task = {
+        id: `local-task-${Date.now()}`,
+        title: goal.name,
+        description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${actualMins} mins.`,
+        dueDate: todayDate,
+        dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timeSlot: 'morning',
+        priority: 'high',
+        category: 'Habit',
+        completed: true,
+        completedAt: new Date().toISOString(),
+        estimatedMinutes: actualMins,
+        actualMinutes: actualMins,
         createdAt: new Date().toISOString()
       };
-      timers.unshift(session);
-      localStorage.setItem('secondBrain_timers', JSON.stringify(timers));
+      tasks.unshift(task);
+    }
+    localStorage.setItem(tasksKey, JSON.stringify(tasks));
 
-      return {
-        success: true,
-        message: `Habit "${goal.name}" completed for today! Logged ${actualMins}m to Tasks.`,
-        goal,
-        task,
-        session
-      };
-    });
+    // Log time session
+    const timersKey = getUserKey('timers');
+    const timers = JSON.parse(localStorage.getItem(timersKey) || '[]');
+    const session = {
+      id: `timer-${Date.now()}`,
+      activityName: goal.name,
+      taskId: task.id,
+      durationMinutes: actualMins,
+      startTime: new Date(Date.now() - actualMins * 60000).toISOString(),
+      endTime: new Date().toISOString(),
+      notes: notes || `Recorded via stopwatch in Today's Focus`,
+      createdAt: new Date().toISOString()
+    };
+    timers.unshift(session);
+    localStorage.setItem(timersKey, JSON.stringify(timers));
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
+      supabase.from('time_sessions').insert({
+        id: session.id,
+        user_id: user.id,
+        activity_name: goal.name,
+        task_id: task.id,
+        duration_minutes: actualMins,
+        notes: session.notes
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      message: `Habit "${goal.name}" completed for today! Logged ${actualMins}m to Tasks.`,
+      goal,
+      task,
+      session
+    };
   }
 
   async deleteWeeklyGoal(id) {
-    return this.request(`/weekly/${id}`, {
-      method: 'DELETE'
-    }, () => {
-      let raw = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      raw = raw.filter(g => g.id !== id);
-      localStorage.setItem('secondBrain_weekly', JSON.stringify(raw));
-      return { success: true, message: 'Habit deleted successfully' };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('weekly_goals').delete().eq('id', id).catch(() => {});
+    }
+
+    const key = getUserKey('weekly');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw = raw.filter(g => g.id !== id);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, message: 'Habit deleted successfully' };
   }
 
   /* ------------------- NOTES / QUICK CAPTURE ------------------- */
   async getNotes(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    const url = `/notes${query ? `?${query}` : ''}`;
-    return this.request(url, { method: 'GET' }, () => {
-      const raw = localStorage.getItem('secondBrain_notes') || '[]';
-      return { success: true, data: JSON.parse(raw) };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        const { data, error } = await supabase.from('notes').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false });
+        if (!error && Array.isArray(data)) {
+          return {
+            success: true,
+            data: data.map(n => ({
+              id: n.id,
+              title: n.title,
+              content: n.content || '',
+              tags: Array.isArray(n.tags) ? n.tags : [],
+              pinned: Boolean(n.pinned),
+              createdAt: n.created_at
+            }))
+          };
+        }
+      } catch (e) {}
+    }
+
+    const key = getUserKey('notes');
+    const raw = localStorage.getItem(key) || '[]';
+    return { success: true, data: JSON.parse(raw) };
   }
 
   async createNote(noteData) {
-    return this.request('/notes', {
-      method: 'POST',
-      body: JSON.stringify(noteData)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_notes') || '[]');
-      const newNote = {
-        ...noteData,
-        id: `local-note-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      raw.unshift(newNote);
-      localStorage.setItem('secondBrain_notes', JSON.stringify(raw));
-      return { success: true, data: newNote };
-    });
+    const id = `note-${Date.now()}`;
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('notes').insert({
+        id,
+        user_id: user.id,
+        title: noteData.title,
+        content: noteData.content || '',
+        tags: noteData.tags || [],
+        pinned: Boolean(noteData.pinned)
+      }).catch(() => {});
+    }
+
+    const key = getUserKey('notes');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const newNote = {
+      ...noteData,
+      id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    raw.unshift(newNote);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, data: newNote };
   }
 
   async updateNote(id, updates) {
-    return this.request(`/notes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_notes') || '[]');
-      const idx = raw.findIndex(n => n.id === id);
-      if (idx !== -1) {
-        raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
-        localStorage.setItem('secondBrain_notes', JSON.stringify(raw));
-        return { success: true, data: raw[idx] };
+    const key = getUserKey('notes');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const idx = raw.findIndex(n => n.id === id);
+    if (idx !== -1) {
+      raw[idx] = { ...raw[idx], ...updates, updatedAt: new Date().toISOString() };
+      localStorage.setItem(key, JSON.stringify(raw));
+
+      const supabase = getSupabase();
+      const user = auth.getCurrentUser();
+      if (supabase && user?.isCloud) {
+        supabase.from('notes').update(updates).eq('id', id).catch(() => {});
       }
-      throw new Error('Note not found');
-    });
+
+      return { success: true, data: raw[idx] };
+    }
+    throw new Error('Note not found');
   }
 
   async deleteNote(id) {
-    return this.request(`/notes/${id}`, {
-      method: 'DELETE'
-    }, () => {
-      let raw = JSON.parse(localStorage.getItem('secondBrain_notes') || '[]');
-      raw = raw.filter(n => n.id !== id);
-      localStorage.setItem('secondBrain_notes', JSON.stringify(raw));
-      return { success: true, message: 'Note deleted' };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('notes').delete().eq('id', id).catch(() => {});
+    }
+
+    const key = getUserKey('notes');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw = raw.filter(n => n.id !== id);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, message: 'Note deleted' };
   }
 
   /* ------------------- TIME SESSIONS & TRACKER ------------------- */
   async getTimeSessions() {
-    return this.request('/timers', { method: 'GET' }, () => {
-      const raw = localStorage.getItem('secondBrain_timers') || '[]';
-      return { success: true, data: JSON.parse(raw) };
-    });
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        const { data, error } = await supabase.from('time_sessions').select('*').order('created_at', { ascending: false });
+        if (!error && Array.isArray(data)) {
+          return {
+            success: true,
+            data: data.map(s => ({
+              id: s.id,
+              activityName: s.activity_name,
+              taskId: s.task_id,
+              durationMinutes: s.duration_minutes,
+              notes: s.notes,
+              createdAt: s.created_at
+            }))
+          };
+        }
+      } catch (e) {}
+    }
+
+    const key = getUserKey('timers');
+    const raw = localStorage.getItem(key) || '[]';
+    return { success: true, data: JSON.parse(raw) };
   }
 
   async logTimeSession(sessionData) {
-    return this.request('/timers', {
-      method: 'POST',
-      body: JSON.stringify(sessionData)
-    }, () => {
-      const raw = JSON.parse(localStorage.getItem('secondBrain_timers') || '[]');
-      const newSession = {
-        ...sessionData,
-        id: `timer-${Date.now()}`,
-        durationMinutes: Number(sessionData.durationMinutes) || 0,
-        createdAt: new Date().toISOString()
-      };
-      raw.unshift(newSession);
-      localStorage.setItem('secondBrain_timers', JSON.stringify(raw));
-      return { success: true, data: newSession };
-    });
+    const id = `timer-${Date.now()}`;
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('time_sessions').insert({
+        id,
+        user_id: user.id,
+        activity_name: sessionData.activityName,
+        task_id: sessionData.taskId || null,
+        duration_minutes: Number(sessionData.durationMinutes) || 0,
+        notes: sessionData.notes || ''
+      }).catch(() => {});
+    }
+
+    const key = getUserKey('timers');
+    const raw = JSON.parse(localStorage.getItem(key) || '[]');
+    const newSession = {
+      ...sessionData,
+      id,
+      durationMinutes: Number(sessionData.durationMinutes) || 0,
+      createdAt: new Date().toISOString()
+    };
+    raw.unshift(newSession);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, data: newSession };
   }
 
   async deleteTimeSession(id) {
-    return this.request(`/timers/${id}`, {
-      method: 'DELETE'
-    }, () => {
-      let raw = JSON.parse(localStorage.getItem('secondBrain_timers') || '[]');
-      raw = raw.filter(s => s.id !== id);
-      localStorage.setItem('secondBrain_timers', JSON.stringify(raw));
-      return { success: true, message: 'Session deleted' };
-    });
+    const key = getUserKey('timers');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    raw = raw.filter(s => s.id !== id);
+    localStorage.setItem(key, JSON.stringify(raw));
+    return { success: true, message: 'Session deleted' };
   }
 
   /* ------------------- STATS & INTENTION ------------------- */
   async getStats() {
-    return this.request('/stats/overview', { method: 'GET' }, () => {
-      const today = getTodayString(0);
-      const tasks = JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]');
-      const projects = JSON.parse(localStorage.getItem('secondBrain_projects') || '[]');
-      const notes = JSON.parse(localStorage.getItem('secondBrain_notes') || '[]');
-      const weekly = JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]');
-      const sessions = JSON.parse(localStorage.getItem('secondBrain_timers') || '[]');
+    const today = getTodayString(0);
+    const tasksRes = await this.getTasks();
+    const tasks = tasksRes.data || [];
+    const projectsRes = await this.getProjects();
+    const projects = projectsRes.data || [];
+    const notesRes = await this.getNotes();
+    const notes = notesRes.data || [];
+    const weeklyRes = await this.getWeeklyGoals();
+    const weekly = weeklyRes.data || [];
+    const timersRes = await this.getTimeSessions();
+    const sessions = timersRes.data || [];
 
-      const completedTasks = tasks.filter(t => t.completed).length;
-      const totalTasks = tasks.length;
-      const todayTasks = tasks.filter(t => t.dueDate === today);
-      const todayPending = todayTasks.filter(t => !t.completed).length;
-      const todayCompleted = todayTasks.filter(t => t.completed).length;
-      const overdueCount = tasks.filter(t => t.dueDate && t.dueDate < today && !t.completed).length;
+    const completedTasks = tasks.filter(t => t.completed).length;
+    const totalTasks = tasks.length;
+    const todayTasks = tasks.filter(t => t.dueDate === today);
+    const todayPending = todayTasks.filter(t => !t.completed).length;
+    const todayCompleted = todayTasks.filter(t => t.completed).length;
+    const overdueCount = tasks.filter(t => t.dueDate && t.dueDate < today && !t.completed).length;
 
-      const activeProjects = projects.filter(p => p.status !== 'Completed').length;
-      const notesCount = notes.length;
+    const activeProjects = projects.filter(p => p.status !== 'Completed').length;
+    const notesCount = notes.length;
 
-      let totalTarget = 0;
-      let totalDone = 0;
-      weekly.forEach(g => {
-        const days = Array.isArray(g.days) ? g.days : [];
-        const c = days.filter(Boolean).length;
-        const t = Number(g.target) || 1;
-        totalTarget += t;
-        totalDone += Math.min(c, t);
-      });
-      const weeklyPercent = totalTarget > 0 ? Math.round((totalDone / totalTarget) * 100) : 0;
-
-      const totalFocusMinutes = sessions.reduce((acc, s) => acc + (Number(s.durationMinutes) || 0), 0);
-      const totalFocusHours = (totalFocusMinutes / 60).toFixed(1);
-      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-      const intentions = JSON.parse(localStorage.getItem('secondBrain_intentions') || '{}');
-      const intention = intentions[today] || localStorage.getItem('secondBrain_intention') || 'Focus deeply on top priorities.';
-
-      return {
-        success: true,
-        data: {
-          completedTasks,
-          totalTasks,
-          completionRate,
-          todayPending,
-          todayCompleted,
-          overdueCount,
-          activeProjects,
-          totalProjects: projects.length,
-          notesCount,
-          weeklyPercent,
-          weeklyDone: totalDone,
-          weeklyTarget: totalTarget,
-          totalFocusMinutes,
-          totalFocusHours,
-          intention,
-          date: today
-        }
-      };
+    let totalTarget = 0;
+    let totalDone = 0;
+    weekly.forEach(g => {
+      const days = Array.isArray(g.days) ? g.days : [];
+      const c = days.filter(Boolean).length;
+      const t = Number(g.target) || 1;
+      totalTarget += t;
+      totalDone += Math.min(c, t);
     });
+    const weeklyPercent = totalTarget > 0 ? Math.round((totalDone / totalTarget) * 100) : 0;
+
+    const totalFocusMinutes = sessions.reduce((acc, s) => acc + (Number(s.durationMinutes) || 0), 0);
+    const totalFocusHours = (totalFocusMinutes / 60).toFixed(1);
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    const key = getUserKey('intentions');
+    const intentions = JSON.parse(localStorage.getItem(key) || '{}');
+    const intention = intentions[today] || localStorage.getItem(getUserKey('intention')) || 'Focus deeply on top priorities.';
+
+    return {
+      success: true,
+      data: {
+        completedTasks,
+        totalTasks,
+        completionRate,
+        todayPending,
+        todayCompleted,
+        overdueCount,
+        activeProjects,
+        totalProjects: projects.length,
+        notesCount,
+        weeklyPercent,
+        weeklyDone: totalDone,
+        weeklyTarget: totalTarget,
+        totalFocusMinutes,
+        totalFocusHours,
+        intention,
+        date: today
+      }
+    };
   }
 
   async getIntention(date) {
     const targetDate = date || getTodayString(0);
-    return this.request(`/stats/intention${date ? `?date=${date}` : ''}`, { method: 'GET' }, () => {
-      const intentions = JSON.parse(localStorage.getItem('secondBrain_intentions') || '{}');
-      const text = intentions[targetDate] || localStorage.getItem('secondBrain_intention') || '';
-      return { success: true, date: targetDate, data: { text, date: targetDate } };
-    });
+    const key = getUserKey('intentions');
+    const intentions = JSON.parse(localStorage.getItem(key) || '{}');
+    const text = intentions[targetDate] || localStorage.getItem(getUserKey('intention')) || '';
+    return { success: true, date: targetDate, data: { text, date: targetDate } };
   }
 
   async setIntention(text, date) {
     const targetDate = date || getTodayString(0);
-    return this.request('/stats/intention', {
-      method: 'POST',
-      body: JSON.stringify({ text, date: targetDate })
-    }, () => {
-      const intentions = JSON.parse(localStorage.getItem('secondBrain_intentions') || '{}');
-      intentions[targetDate] = text;
-      localStorage.setItem('secondBrain_intentions', JSON.stringify(intentions));
-      localStorage.setItem('secondBrain_intention', text);
-      return { success: true, date: targetDate, data: { text, date: targetDate } };
-    });
+    const key = getUserKey('intentions');
+    const intentions = JSON.parse(localStorage.getItem(key) || '{}');
+    intentions[targetDate] = text;
+    localStorage.setItem(key, JSON.stringify(intentions));
+    localStorage.setItem(getUserKey('intention'), text);
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      supabase.from('user_intentions').upsert({
+        id: `${user.id}_${targetDate}`,
+        user_id: user.id,
+        date: targetDate,
+        text
+      }).catch(() => {});
+    }
+
+    return { success: true, date: targetDate, data: { text, date: targetDate } };
   }
 
   /* ------------------- SETTINGS & BACKUP ------------------- */
   async getSettings() {
-    return this.request('/stats/settings', { method: 'GET' }, () => {
-      const defaults = {
-        theme: 'dark-purple',
-        pomodoroMinutes: 25,
-        shortBreakMinutes: 5,
-        soundEnabled: true
-      };
-      const raw = localStorage.getItem('secondBrain_settings');
-      return { success: true, data: raw ? { ...defaults, ...JSON.parse(raw) } : defaults };
-    });
+    const defaults = {
+      theme: 'dark-purple',
+      pomodoroMinutes: 25,
+      shortBreakMinutes: 5,
+      soundEnabled: true
+    };
+    const key = getUserKey('settings');
+    const raw = localStorage.getItem(key);
+    return { success: true, data: raw ? { ...defaults, ...JSON.parse(raw) } : defaults };
   }
 
   async updateSettings(settings) {
-    return this.request('/stats/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings)
-    }, () => {
-      const current = JSON.parse(localStorage.getItem('secondBrain_settings') || '{}');
-      const updated = { ...current, ...settings };
-      localStorage.setItem('secondBrain_settings', JSON.stringify(updated));
-      return { success: true, data: updated };
-    });
+    const key = getUserKey('settings');
+    const current = JSON.parse(localStorage.getItem(key) || '{}');
+    const updated = { ...current, ...settings };
+    localStorage.setItem(key, JSON.stringify(updated));
+    return { success: true, data: updated };
   }
 
   async exportBackup() {
-    try {
-      if (this.isOnline && API_BASE) {
-        const res = await fetch(`${API_BASE}/stats/backup/export`, { signal: AbortSignal.timeout(3000) });
-        if (res.ok) return await res.json();
-      }
-    } catch {}
-
+    const user = auth.getCurrentUser();
     return {
       success: true,
+      user: user ? { email: user.email, name: user.name } : 'guest',
       exportedAt: new Date().toISOString(),
       data: {
-        tasks: JSON.parse(localStorage.getItem('secondBrain_tasks') || '[]'),
-        projects: JSON.parse(localStorage.getItem('secondBrain_projects') || '[]'),
-        weeklyGoals: JSON.parse(localStorage.getItem('secondBrain_weekly') || '[]'),
-        notes: JSON.parse(localStorage.getItem('secondBrain_notes') || '[]'),
-        timeSessions: JSON.parse(localStorage.getItem('secondBrain_timers') || '[]'),
-        settings: JSON.parse(localStorage.getItem('secondBrain_settings') || '{}')
+        tasks: JSON.parse(localStorage.getItem(getUserKey('tasks')) || '[]'),
+        projects: JSON.parse(localStorage.getItem(getUserKey('projects')) || '[]'),
+        weeklyGoals: JSON.parse(localStorage.getItem(getUserKey('weekly')) || '[]'),
+        notes: JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]'),
+        timeSessions: JSON.parse(localStorage.getItem(getUserKey('timers')) || '[]'),
+        settings: JSON.parse(localStorage.getItem(getUserKey('settings')) || '{}')
       }
     };
   }
 
   async importBackup(jsonData) {
-    return this.request('/stats/backup/import', {
-      method: 'POST',
-      body: JSON.stringify(jsonData)
-    }, () => {
-      const payload = jsonData.data || jsonData;
-      if (Array.isArray(payload.tasks)) localStorage.setItem('secondBrain_tasks', JSON.stringify(payload.tasks));
-      if (Array.isArray(payload.projects)) localStorage.setItem('secondBrain_projects', JSON.stringify(payload.projects));
-      if (Array.isArray(payload.weeklyGoals || payload.weekly)) {
-        localStorage.setItem('secondBrain_weekly', JSON.stringify(payload.weeklyGoals || payload.weekly));
-      }
-      if (Array.isArray(payload.notes)) localStorage.setItem('secondBrain_notes', JSON.stringify(payload.notes));
-      if (Array.isArray(payload.timeSessions || payload.timers)) {
-        localStorage.setItem('secondBrain_timers', JSON.stringify(payload.timeSessions || payload.timers));
-      }
-      return { success: true, message: 'Restored backup to localStorage successfully' };
-    });
+    const payload = jsonData.data || jsonData;
+    if (Array.isArray(payload.tasks)) localStorage.setItem(getUserKey('tasks'), JSON.stringify(payload.tasks));
+    if (Array.isArray(payload.projects)) localStorage.setItem(getUserKey('projects'), JSON.stringify(payload.projects));
+    if (Array.isArray(payload.weeklyGoals || payload.weekly)) {
+      localStorage.setItem(getUserKey('weekly'), JSON.stringify(payload.weeklyGoals || payload.weekly));
+    }
+    if (Array.isArray(payload.notes)) localStorage.setItem(getUserKey('notes'), JSON.stringify(payload.notes));
+    if (Array.isArray(payload.timeSessions || payload.timers)) {
+      localStorage.setItem(getUserKey('timers'), JSON.stringify(payload.timeSessions || payload.timers));
+    }
+    return { success: true, message: 'Restored backup to your account successfully' };
   }
 
   async resetSeed() {
-    return this.request('/stats/seed/reset', {
-      method: 'POST'
-    }, () => {
-      seedDefaultData(true);
-      return { success: true, message: 'Reset local data to defaults' };
-    });
+    seedUserStarterData(auth.getUserId(), true);
+    return { success: true, message: 'Reset workspace data to defaults' };
   }
 }
 

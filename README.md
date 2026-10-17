@@ -11,8 +11,9 @@
 4. [Shared Reusable UI Components](#shared-reusable-ui-components)
 5. [Backend REST API Specification](#backend-rest-api-specification)
 6. [Offline-First Resilience & Sync](#offline-first-resilience--sync)
-7. [Installation & Getting Started](#installation--getting-started)
-8. [Configuration & Environment](#configuration--environment)
+7. [Multi-User Accounts & Cloud Sync](#multi-user-accounts--cloud-sync)
+8. [Installation & Getting Started](#installation--getting-started)
+9. [Configuration & Environment](#configuration--environment)
 
 ---
 
@@ -155,6 +156,25 @@ The frontend API client ([`frontend/js/api.js`](file:///Users/marwanmohamed/Desk
 - **Online Mode**: Reads and persists data via the Express REST API and atomic JSON database.
 - **Offline / Standalone Fallback**: If the server is offline or the HTML file is opened directly in a browser via `file://`, the client seamlessly mirrors all CRUD operations to `localStorage`.
 - Real-time status indicator in the sidebar informs you whether cloud sync is active or running locally.
+
+---
+
+## 👥 Multi-User Accounts & Cloud Sync
+
+Second Brain supports **per-user accounts and complete data isolation**:
+Every user registers with their own email address, and their tasks, habits, projects, notes, and timers are strictly private to their account.
+
+### 1. Two Synchronization Modes
+- **Supabase Cloud Database (Cross-Device Sync)**:
+  - Connect your free project from [supabase.com](https://supabase.com).
+  - Cross-device sync: Sign in from your phone, laptop, or desktop and access your personal workspace anywhere.
+  - Run `supabase_schema.sql` in Supabase SQL editor to create the PostgreSQL tables and Row-Level Security (RLS) policies.
+  - Paste your Project URL & Anon Key into **Workspace Settings -> Supabase Cloud**.
+- **Local Multi-Account Mode (Private Offline Mode)**:
+  - Works immediately on GitHub Pages without any cloud setup.
+  - Multiple people can create accounts with their emails on the same browser/device.
+  - Passwords are encrypted with SHA-256 via Web Crypto API.
+  - Data is cleanly isolated per account namespace (`secondBrain_<userId>_*`).
 
 ---
 
