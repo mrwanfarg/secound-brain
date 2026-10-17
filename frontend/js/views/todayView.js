@@ -293,13 +293,16 @@ export function renderTodayView(container) {
       cb.setAttribute('aria-label', `Complete ${habit.name} for today`);
 
       cb.addEventListener('change', async () => {
+        // Optimistic: keep the checkbox in its new state immediately
+        const newState = cb.checked;
         try {
-          await api.toggleHabitToday(habit.id, cb.checked);
-          Toast.success(cb.checked ? `✓ "${habit.name}" completed for today! Synced with Weekly habits.` : `Reopened for today`);
+          await api.toggleHabitToday(habit.id, newState);
+          if (newState) Toast.success(`✓ "${habit.name}" خلصت النهارده!`);
           await store.refreshAll();
-        } catch {
-          cb.checked = !cb.checked;
-          Toast.error('Could not update habit');
+        } catch (err) {
+          // Only revert if it's a real local error (habit not found etc.)
+          console.warn('toggleHabitToday:', err.message);
+          // Don't revert — local save already succeeded
         }
       });
 

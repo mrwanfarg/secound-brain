@@ -651,39 +651,47 @@ class ApiClient {
     goal.days[todayIndex] = nextState;
     localStorage.setItem(key, JSON.stringify(raw));
 
+    // Sync task locally
     syncHabitWithUserTasks(goal.name, nextState);
 
-    const supabase = getSupabase();
-    const user = auth.getCurrentUser();
-    if (supabase && user?.isCloud) {
-      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
-    }
+    // Cloud sync – fire-and-forget, never throw
+    try {
+      const supabase = getSupabase();
+      const user = auth.getCurrentUser();
+      if (supabase && user?.isCloud) {
+        await supabase.from('weekly_goals')
+          .update({ days: goal.days })
+          .eq('id', id);
+      }
+    } catch (_) { /* ignore cloud errors */ }
 
     return { success: true, isCompletedToday: nextState, goal, todayIndex };
   }
 
   async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '' } = {}) {
+    // ── 1. Find the habit locally ────────────────────────────────
     const key = getUserKey('weekly');
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
     const goal = raw.find(g => g.id === id);
     if (!goal) throw new Error('Habit not found');
 
     const todayIndex = getTodayDayIndex();
-    const todayDate = getTodayString(0);
+    const todayDate  = getTodayString(0);
     const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
 
+    // ── 2. Mark habit day as done ────────────────────────────────
     if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
     goal.days[todayIndex] = true;
     localStorage.setItem(key, JSON.stringify(raw));
 
-    // Create or update task in tasks collection
+    // ── 3. Create/update matching task in localStorage ───────────
     const tasksKey = getUserKey('tasks');
     const tasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
     let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
 
     if (task) {
-      task.completed = true;
-      task.completedAt = new Date().toISOString();
+      task.completed    = true;
+      task.completedAt  = new Date().toISOString();
       task.actualMinutes = (Number(task.actualMinutes) || 0) + actualMins;
     } else {
       task = {
@@ -705,7 +713,7 @@ class ApiClient {
     }
     localStorage.setItem(tasksKey, JSON.stringify(tasks));
 
-    // Log time session
+    // ── 4. Log time session in localStorage ─────────────────────
     const timersKey = getUserKey('timers');
     const timers = JSON.parse(localStorage.getItem(timersKey) || '[]');
     const session = {
@@ -721,18 +729,29 @@ class ApiClient {
     timers.unshift(session);
     localStorage.setItem(timersKey, JSON.stringify(timers));
 
-    const supabase = getSupabase();
-    const user = auth.getCurrentUser();
-    if (supabase && user?.isCloud) {
-      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
-      supabase.from('time_sessions').insert({
-        id: session.id,
-        user_id: user.id,
-        activity_name: goal.name,
-        task_id: task.id,
-        duration_minutes: actualMins,
-        notes: session.notes
-      }).catch(() => {});
+    // ── 5. Cloud sync – fire-and-forget, NEVER throw ─────────────
+    // (local-task-xxx and timer-xxx are not valid UUIDs for Supabase,
+    //  so we omit task_id from the cloud insert)
+    try {
+      const supabase = getSupabase();
+      const user = auth.getCurrentUser();
+      if (supabase && user?.isCloud) {
+        // Update habit days array
+        supabase.from('weekly_goals')
+          .update({ days: goal.days })
+          .eq('id', id)
+          .then(({ error }) => { if (error) console.warn('Supabase habit update:', error.message); });
+
+        // Insert time session (omit task_id – not a valid UUID)
+        supabase.from('time_sessions').insert({
+          user_id: user.id,
+          activity_name: goal.name,
+          duration_minutes: actualMins,
+          notes: session.notes
+        }).then(({ error }) => { if (error) console.warn('Supabase session insert:', error.message); });
+      }
+    } catch (cloudErr) {
+      console.warn('Cloud sync skipped:', cloudErr.message);
     }
 
     return {
