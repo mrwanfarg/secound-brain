@@ -85,6 +85,9 @@ class Store {
     // which triggers the listener above — so by the time we await here,
     // this.state.user is already set
     await auth.init();
+
+    // Restore stopwatch state from localStorage (survives page close/lock)
+    this._restoreStopwatchFromStorage();
   }
 
   async refreshAll() {
@@ -157,51 +160,135 @@ class Store {
       }
     });
   }
-  // STOPWATCH CONTROLS (Live tracker for habits & tasks)
+
+  // ─────────────────────────────────────────────────────────────
+  // STOPWATCH – persists across page close / phone lock
+  //
+  // Strategy:
+  //   Running → save { startTimestamp, elapsedAtStart } to localStorage
+  //   Paused  → save { isPaused: true, elapsedAtStart } to localStorage
+  //   On open → recalculate elapsed = elapsedAtStart + (now - startTimestamp)
+  // ─────────────────────────────────────────────────────────────
+
+  static get SW_KEY() { return 'secondBrain_stopwatch_state'; }
+
+  /** Persist current stopwatch state so it survives page reload/lock */
+  _saveStopwatchToStorage() {
+    const sw = this.state.stopwatch;
+    if (!sw.isRunning) {
+      localStorage.removeItem(Store.SW_KEY);
+      return;
+    }
+    localStorage.setItem(Store.SW_KEY, JSON.stringify({
+      isRunning: true,
+      isPaused: sw.isPaused,
+      // seconds already accumulated before the current running segment
+      elapsedAtStart: sw._elapsedAtStart ?? 0,
+      // wall-clock ms when the current segment started (null when paused)
+      startTimestamp: sw._startTimestamp ?? null,
+      activeItemId: sw.activeItemId,
+      activeItemTitle: sw.activeItemTitle,
+      activeItemType: sw.activeItemType
+    }));
+  }
+
+  /** Called once on app init – restores a running/paused stopwatch */
+  _restoreStopwatchFromStorage() {
+    try {
+      const raw = localStorage.getItem(Store.SW_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved.isRunning) return;
+
+      // Recalculate total elapsed (adds time that passed while page was closed)
+      let elapsedSeconds = saved.elapsedAtStart || 0;
+      if (!saved.isPaused && saved.startTimestamp) {
+        elapsedSeconds += Math.floor((Date.now() - saved.startTimestamp) / 1000);
+      }
+
+      // Re-create the tick interval
+      const intervalId = setInterval(() => {
+        if (this.state.stopwatch.isRunning && !this.state.stopwatch.isPaused) {
+          this.state.stopwatch.elapsedSeconds++;
+          this._saveStopwatchToStorage();
+          this.notify('stopwatch');
+        }
+      }, 1000);
+
+      this.state.stopwatch = {
+        isRunning: true,
+        isPaused: saved.isPaused || false,
+        elapsedSeconds,
+        _elapsedAtStart: saved.isPaused ? elapsedSeconds : (saved.elapsedAtStart || 0),
+        _startTimestamp: saved.isPaused ? null : saved.startTimestamp,
+        activeItemId: saved.activeItemId,
+        activeItemTitle: saved.activeItemTitle,
+        activeItemType: saved.activeItemType || 'habit',
+        intervalId
+      };
+      this.notify('stopwatch');
+    } catch (e) {
+      console.warn('Could not restore stopwatch:', e);
+    }
+  }
+
+  // ── STOPWATCH PUBLIC API ──────────────────────────────────────
+
   startStopwatch(itemId, title, type = 'habit') {
-    // If another is running, clear interval
+    // Clear any existing interval first
     if (this.state.stopwatch.intervalId) {
       clearInterval(this.state.stopwatch.intervalId);
     }
 
+    const startTimestamp = Date.now();
+
     const intervalId = setInterval(() => {
       if (this.state.stopwatch.isRunning && !this.state.stopwatch.isPaused) {
         this.state.stopwatch.elapsedSeconds++;
+        this._saveStopwatchToStorage();
         this.notify('stopwatch');
       }
     }, 1000);
 
-    this.setState({
-      stopwatch: {
-        isRunning: true,
-        isPaused: false,
-        elapsedSeconds: 0,
-        activeItemId: itemId,
-        activeItemTitle: title,
-        activeItemType: type,
-        intervalId
-      }
-    });
+    this.state.stopwatch = {
+      isRunning: true,
+      isPaused: false,
+      elapsedSeconds: 0,
+      _elapsedAtStart: 0,
+      _startTimestamp: startTimestamp,
+      activeItemId: itemId,
+      activeItemTitle: title,
+      activeItemType: type,
+      intervalId
+    };
+    this._saveStopwatchToStorage();
+    this.notify('stopwatch');
   }
 
   pauseStopwatch() {
-    if (!this.state.stopwatch.isRunning) return;
-    this.setState({
-      stopwatch: {
-        ...this.state.stopwatch,
-        isPaused: true
-      }
-    });
+    if (!this.state.stopwatch.isRunning || this.state.stopwatch.isPaused) return;
+    this.state.stopwatch = {
+      ...this.state.stopwatch,
+      isPaused: true,
+      // Freeze elapsed count so we can resume from here
+      _elapsedAtStart: this.state.stopwatch.elapsedSeconds,
+      _startTimestamp: null
+    };
+    this._saveStopwatchToStorage();
+    this.notify('stopwatch');
   }
 
   resumeStopwatch() {
-    if (!this.state.stopwatch.isRunning) return;
-    this.setState({
-      stopwatch: {
-        ...this.state.stopwatch,
-        isPaused: false
-      }
-    });
+    if (!this.state.stopwatch.isRunning || !this.state.stopwatch.isPaused) return;
+    const startTimestamp = Date.now();
+    this.state.stopwatch = {
+      ...this.state.stopwatch,
+      isPaused: false,
+      _startTimestamp: startTimestamp,
+      _elapsedAtStart: this.state.stopwatch.elapsedSeconds
+    };
+    this._saveStopwatchToStorage();
+    this.notify('stopwatch');
   }
 
   stopStopwatch() {
@@ -213,17 +300,19 @@ class Store {
     const finalTitle = this.state.stopwatch.activeItemTitle;
     const finalType = this.state.stopwatch.activeItemType;
 
-    this.setState({
-      stopwatch: {
-        isRunning: false,
-        isPaused: false,
-        elapsedSeconds: 0,
-        activeItemId: null,
-        activeItemTitle: '',
-        activeItemType: 'habit',
-        intervalId: null
-      }
-    });
+    this.state.stopwatch = {
+      isRunning: false,
+      isPaused: false,
+      elapsedSeconds: 0,
+      _elapsedAtStart: 0,
+      _startTimestamp: null,
+      activeItemId: null,
+      activeItemTitle: '',
+      activeItemType: 'habit',
+      intervalId: null
+    };
+    localStorage.removeItem(Store.SW_KEY);
+    this.notify('stopwatch');
 
     return {
       elapsedSeconds: finalSeconds,
