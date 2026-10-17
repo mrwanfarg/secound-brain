@@ -172,9 +172,8 @@ export function renderTodayView(container) {
   /** Show the green ✓ done banner inside the stopwatch panel */
   function showDoneBanner(title, mins) {
     doneBanner.style.display = 'flex';
-    doneTitle.textContent = `✓ "${title}" خلصت!`;
-    doneDetail.textContent = `تم تسجيل ${mins} دقيقة بنجاح`;
-    // Auto-hide after 6 seconds
+    doneTitle.textContent = `✓ "${title}" done!`;
+    doneDetail.textContent = `Logged ${mins} minute${mins !== 1 ? 's' : ''} successfully`;
     setTimeout(() => { doneBanner.style.display = 'none'; }, 6000);
   }
 
@@ -293,16 +292,13 @@ export function renderTodayView(container) {
       cb.setAttribute('aria-label', `Complete ${habit.name} for today`);
 
       cb.addEventListener('change', async () => {
-        // Optimistic: keep the checkbox in its new state immediately
         const newState = cb.checked;
         try {
           await api.toggleHabitToday(habit.id, newState);
-          if (newState) Toast.success(`✓ "${habit.name}" خلصت النهارده!`);
+          if (newState) Toast.success(`✓ "${habit.name}" completed for today!`);
           await store.refreshAll();
         } catch (err) {
-          // Only revert if it's a real local error (habit not found etc.)
           console.warn('toggleHabitToday:', err.message);
-          // Don't revert — local save already succeeded
         }
       });
 
@@ -374,7 +370,7 @@ export function renderTodayView(container) {
             <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
               background:rgba(80,220,130,0.15);border:1px solid rgba(80,220,130,0.4);
               border-radius:20px;font-size:12px;font-weight:700;color:var(--green);">
-              ✓ خلصت! (${mins}m logged)
+              ✓ Done! (${mins}m logged)
             </span>`;
           card.style.background = 'rgba(80,220,130,0.06)';
           card.style.borderColor = 'rgba(80,220,130,0.35)';
