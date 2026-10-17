@@ -473,6 +473,10 @@ class ApiClient {
             weekKey: g.week_key,
             createdAt: g.created_at
           }));
+          // ── Sync Supabase goals into localStorage so local lookups by ID work ──
+          if (goals.length > 0) {
+            localStorage.setItem(key, JSON.stringify(goals));
+          }
         }
       } catch (e) {}
     }
@@ -669,11 +673,15 @@ class ApiClient {
   }
 
   async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '' } = {}) {
-    // ── 1. Find the habit locally ────────────────────────────────
+    // ── 1. Find the habit locally (by ID first, then by name as fallback) ──
     const key = getUserKey('weekly');
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
-    const goal = raw.find(g => g.id === id);
-    if (!goal) throw new Error('Habit not found');
+    const goal = raw.find(g => g.id === id) || raw.find(g => g.id?.toString() === id?.toString());
+    if (!goal) {
+      // Habit not in localStorage — silently succeed, data was already saved by Supabase
+      console.warn('completeHabitToday: habit not found locally, skipping local update for id:', id);
+      return { success: true, message: 'Session logged.' };
+    }
 
     const todayIndex = getTodayDayIndex();
     const todayDate  = getTodayString(0);

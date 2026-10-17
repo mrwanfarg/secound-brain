@@ -113,14 +113,29 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
     metaRow.appendChild(slotSpan);
   }
 
-  // Tracked time vs Estimated
-  if (task.actualMinutes > 0) {
+  // Time tracking: actual vs minimum goal
+  if (task.actualMinutes > 0 || task.minimumMinutes > 0) {
     const actBadge = document.createElement('span');
     actBadge.className = 'task-badge';
-    actBadge.style.background = 'rgba(91, 224, 235, 0.16)';
-    actBadge.style.color = 'var(--cyan)';
-    actBadge.style.fontWeight = '700';
-    actBadge.textContent = `⏱ ${task.actualMinutes}m tracked`;
+    const actual = task.actualMinutes || 0;
+    const minGoal = task.minimumMinutes || 0;
+
+    if (actual > 0 && minGoal > 0) {
+      const met = actual >= minGoal;
+      actBadge.style.background = met ? 'rgba(80,220,130,0.15)' : 'rgba(255,100,100,0.15)';
+      actBadge.style.color = met ? 'var(--green)' : '#ff6464';
+      actBadge.style.fontWeight = '700';
+      actBadge.textContent = `${met ? '✓' : '⚠'} ${actual}m / ${minGoal}m min`;
+    } else if (actual > 0) {
+      actBadge.style.background = 'rgba(91, 224, 235, 0.16)';
+      actBadge.style.color = 'var(--cyan)';
+      actBadge.style.fontWeight = '700';
+      actBadge.textContent = `⏱ ${actual}m tracked`;
+    } else if (minGoal > 0) {
+      actBadge.style.background = 'rgba(155,123,255,0.12)';
+      actBadge.style.color = 'var(--violet-light)';
+      actBadge.textContent = `⏱ Min: ${minGoal}m`;
+    }
     metaRow.appendChild(actBadge);
   } else if (task.estimatedMinutes) {
     const estSpan = document.createElement('span');
@@ -252,10 +267,16 @@ export function openEditTaskModal(task = null, onSaved = null) {
   `;
 
   const row3 = document.createElement('div');
-  row3.className = 'form-group';
+  row3.className = 'form-grid-2';
   row3.innerHTML = `
-    <label for="modalTaskEst">Estimated Minutes</label>
-    <input type="number" id="modalTaskEst" class="field" min="5" step="5" value="${task ? task.estimatedMinutes || 30 : 30}">
+    <div class="form-group">
+      <label for="modalTaskEst">Estimated Minutes</label>
+      <input type="number" id="modalTaskEst" class="field" min="5" step="5" value="${task ? task.estimatedMinutes || 30 : 30}">
+    </div>
+    <div class="form-group">
+      <label for="modalTaskMinTime">⏱ Minimum Time Goal (min)</label>
+      <input type="number" id="modalTaskMinTime" class="field" min="0" step="5" value="${task ? task.minimumMinutes || 0 : 0}" placeholder="0 = no minimum">
+    </div>
   `;
 
   const catGroup = document.createElement('div');
@@ -298,6 +319,7 @@ export function openEditTaskModal(task = null, onSaved = null) {
             timeSlot: form.querySelector('#modalTaskSlot').value,
             projectId: null,
             estimatedMinutes: Number(form.querySelector('#modalTaskEst').value) || 30,
+            minimumMinutes: Number(form.querySelector('#modalTaskMinTime').value) || 0,
             category: form.querySelector('#modalTaskCategory').value
           };
 

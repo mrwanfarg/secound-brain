@@ -143,16 +143,16 @@ class App {
         tabSignUp?.classList.add('active');
         tabSignIn?.classList.remove('active');
         if (nameGroup) nameGroup.style.display = 'block';
-        if (titleEl) titleEl.textContent = 'إنشاء حساب جديد للبدء';
-        if (subtitleEl) subtitleEl.textContent = 'أنشئ حسابك الخاص لتفعيل لوحة التحكم وجدول مهامك وعاداتك. حسابك يظل متثبتاً تلقائياً على هذا الجهاز.';
-        if (submitBtn) submitBtn.innerHTML = '<span>إنشاء الحساب ودخول الـ Dashboard ⚡</span>';
+        if (titleEl) titleEl.textContent = 'Create a new account';
+        if (subtitleEl) subtitleEl.textContent = 'Set up your account to unlock your dashboard, task schedule and habits. Your account stays logged in on this device.';
+        if (submitBtn) submitBtn.innerHTML = '<span>Create account & enter Dashboard ⚡</span>';
       } else {
         tabSignUp?.classList.remove('active');
         tabSignIn?.classList.add('active');
         if (nameGroup) nameGroup.style.display = 'none';
-        if (titleEl) titleEl.textContent = 'تسجيل الدخول إلى حسابك';
-        if (subtitleEl) subtitleEl.textContent = 'أدخل بريدك وكلمة المرور للوصول إلى لوحة التحكم الخاصة بك.';
-        if (submitBtn) submitBtn.innerHTML = '<span>تسجيل الدخول ودخول الـ Dashboard ⚡</span>';
+        if (titleEl) titleEl.textContent = 'Sign in to your account';
+        if (subtitleEl) subtitleEl.textContent = 'Enter your email and password to access your personal dashboard.';
+        if (submitBtn) submitBtn.innerHTML = '<span>Sign in & enter Dashboard ⚡</span>';
       }
     };
 
@@ -173,16 +173,16 @@ class App {
       const originalHtml = submitBtn ? submitBtn.innerHTML : '';
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>جاري التحقق والدخول... ⏳</span>';
+        submitBtn.innerHTML = '<span>Verifying... ⏳</span>';
       }
 
       try {
         if (currentMode === 'signup') {
           const res = await auth.signUp({ name, email, password });
-          Toast.success(res.message || 'تم إنشاء الحساب بنجاح! ⚡');
+          Toast.success(res.message || 'Account created successfully! ⚡');
         } else {
           await auth.signIn({ email, password });
-          Toast.success('أهلاً بك مجدداً! ⚡');
+          Toast.success('Welcome back! ⚡');
         }
 
         // Unlock Dashboard directly
@@ -190,9 +190,9 @@ class App {
       } catch (err) {
         if (errorEl) {
           errorEl.style.display = 'block';
-          errorEl.textContent = err.message || 'حدث خطأ في التسجيل';
+          errorEl.textContent = err.message || 'Registration failed';
         }
-        Toast.error(err.message || 'فشل التسجيل');
+        Toast.error(err.message || 'Sign in failed');
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -261,7 +261,7 @@ class App {
         container.querySelector('#sidebarLogoutBtn')?.addEventListener('click', async e => {
           e.stopPropagation();
           await auth.signOut();
-          Toast.info('تم تسجيل الخروج بنجاح.');
+          Toast.info('Signed out successfully.');
           this.lockDashboard('signin');
         });
 

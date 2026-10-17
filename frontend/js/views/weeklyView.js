@@ -189,6 +189,30 @@ export function renderWeeklyView(container) {
           <div style="font-weight: 700; color: var(--text);">${goal.name}</div>
           <div class="weekly-goal-target">Target: ${target}d/wk · <span style="color: var(--text-secondary);">[${scheduledDayTags}]</span></div>
         `;
+
+        // ── Hours logged this week for this habit ──
+        const timeSessions = store.state.timeSessions || [];
+        const weekStart = (() => {
+          const d = new Date();
+          const dss = (d.getDay() + 1) % 7;
+          d.setDate(d.getDate() - dss);
+          d.setHours(0,0,0,0);
+          return d;
+        })();
+        const habitMins = timeSessions
+          .filter(s => {
+            const name = (s.activityName || s.activity_name || '').toLowerCase();
+            const sDate = new Date(s.startTime || s.created_at || s.createdAt || 0);
+            return name === goal.name.toLowerCase() && sDate >= weekStart;
+          })
+          .reduce((acc, s) => acc + (Number(s.durationMinutes || s.duration_minutes) || 0), 0);
+        const habitHours = (habitMins / 60).toFixed(1);
+        if (habitMins > 0) {
+          const timeBadge = document.createElement('div');
+          timeBadge.style.cssText = 'font-size:10px;color:var(--cyan);margin-top:2px;';
+          timeBadge.textContent = `⏱ ${habitHours}h logged this week`;
+          nameCell.appendChild(timeBadge);
+        }
         row.appendChild(nameCell);
 
         // Days 0..6
