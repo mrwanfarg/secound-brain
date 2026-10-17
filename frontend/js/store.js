@@ -74,13 +74,17 @@ class Store {
       this.setState({ isOnline: online });
     });
 
+    // Register auth listener BEFORE auth.init() so the immediate
+    // notify() at end of init() propagates correctly to the store
     auth.onAuthChange(async user => {
       this.setState({ user });
       await this.refreshAll();
     });
 
+    // auth.init() restores localStorage session then calls notify()
+    // which triggers the listener above — so by the time we await here,
+    // this.state.user is already set
     await auth.init();
-    await this.refreshAll();
   }
 
   async refreshAll() {

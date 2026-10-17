@@ -34,11 +34,6 @@ const PAGE_META = {
     subtitle: 'Plan, categorize, and execute action items via List, Kanban, or Timeline view.',
     breadcrumb: 'Tasks'
   },
-  Goals: {
-    title: 'Strategic Objectives & Milestones',
-    subtitle: 'Keep your long-term compass aligned while executing daily sprints.',
-    breadcrumb: 'Goals'
-  },
   Notes: {
     title: 'Knowledge Base & Capture',
     subtitle: 'A second brain for your mental clarity — notes, insights, and references.',
@@ -64,7 +59,6 @@ class App {
       Today: renderTodayView,
       Weekly: renderWeeklyView,
       Tasks: renderTasksView,
-      Goals: renderGoalsView,
       Notes: renderNotesView,
       Insights: renderInsightsView,
       Settings: renderSettingsView

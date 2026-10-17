@@ -42,6 +42,8 @@ class AuthService {
             name: session.user.user_metadata?.name || session.user.email.split('@')[0],
             isCloud: true
           };
+          // Persist cloud session locally too
+          localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
         }
 
         // Listen for Supabase auth state changes
@@ -53,8 +55,10 @@ class AuthService {
               name: session.user.user_metadata?.name || session.user.email.split('@')[0],
               isCloud: true
             };
-          } else {
+            localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
+          } else if (event === 'SIGNED_OUT') {
             this.currentUser = null;
+            localStorage.removeItem('secondBrain_auth_session');
           }
           this.notify();
         });
@@ -63,19 +67,28 @@ class AuthService {
       }
     }
 
-    // If not logged in via Supabase, check local session
+    // If not logged in via Supabase, restore local session from localStorage
     if (!this.currentUser && typeof localStorage !== 'undefined') {
       try {
         const savedSession = localStorage.getItem('secondBrain_auth_session');
         if (savedSession) {
-          this.currentUser = JSON.parse(savedSession);
+          const parsed = JSON.parse(savedSession);
+          // Validate saved session has required fields
+          if (parsed && parsed.id && parsed.email) {
+            this.currentUser = parsed;
+          } else {
+            localStorage.removeItem('secondBrain_auth_session');
+          }
         }
       } catch (e) {
         console.warn('Failed to parse local auth session:', e);
+        localStorage.removeItem('secondBrain_auth_session');
       }
     }
 
     this.isInitialized = true;
+    // Notify all listeners with the restored user (even if null)
+    this.notify();
     return this.currentUser;
   }
 
