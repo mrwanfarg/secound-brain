@@ -4,20 +4,32 @@
  */
 
 export const config = {
+  // Built-in Default Supabase Cloud Connection
+  defaultSupabaseUrl: 'https://vswqxmdsvnmdxnajgwnb.supabase.co',
+  defaultSupabaseKey: 'sb_publishable_AMMqTlghyorxnDPWjRDQhA_Ov0M3Jr-',
+
   // Supabase Project URL (e.g. https://your-project.supabase.co)
   get supabaseUrl() {
-    return localStorage.getItem('secondBrain_supabase_url') || '';
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('secondBrain_supabase_url') || this.defaultSupabaseUrl;
+    }
+    return this.defaultSupabaseUrl;
   },
   set supabaseUrl(val) {
+    if (typeof localStorage === 'undefined') return;
     if (val) localStorage.setItem('secondBrain_supabase_url', val.trim());
     else localStorage.removeItem('secondBrain_supabase_url');
   },
 
   // Supabase Public / Anon API Key
   get supabaseKey() {
-    return localStorage.getItem('secondBrain_supabase_key') || '';
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('secondBrain_supabase_key') || this.defaultSupabaseKey;
+    }
+    return this.defaultSupabaseKey;
   },
   set supabaseKey(val) {
+    if (typeof localStorage === 'undefined') return;
     if (val) localStorage.setItem('secondBrain_supabase_key', val.trim());
     else localStorage.removeItem('secondBrain_supabase_key');
   },
