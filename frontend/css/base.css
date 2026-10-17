@@ -275,9 +275,10 @@ textarea:focus-visible, select:focus-visible {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(5, 4, 8, 0.7);
-  backdrop-filter: blur(4px);
-  z-index: 99;
+  background: rgba(5, 4, 8, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1500;
   opacity: 0;
   transition: opacity var(--transition-normal);
 }
@@ -354,33 +355,36 @@ textarea:focus-visible, select:focus-visible {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(12, 11, 19, 0.97);
-  border-top: 1px solid var(--border);
+  height: 58px;
+  background: rgba(14, 11, 23, 0.96);
+  border-top: 1px solid rgba(155, 123, 255, 0.2);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  z-index: 200;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.mobile-bottom-nav-inner {
-  display: flex;
-  align-items: stretch;
+  z-index: 500;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
 }
 
 .mob-nav-btn {
   flex: 1;
+  height: 54px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 10px 4px;
+  gap: 2px;
+  padding: 4px 2px;
   border: none;
   background: transparent;
   color: var(--muted);
   transition: all var(--transition-fast);
-  min-height: 60px;
   position: relative;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mob-nav-btn::before {
@@ -495,7 +499,7 @@ h1 {
     height: 100vh;
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
-    z-index: 300;
+    z-index: 1501;
   }
 
   .sidebar.open {
@@ -543,21 +547,17 @@ h1 {
   }
 
   .main {
-    padding: 16px 14px 130px;
+    padding: 16px 14px calc(74px + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-bottom-nav {
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Show the inner flex row */
-  .mobile-bottom-nav > * {
-    display: flex;
+    display: flex !important;
+    flex-direction: row !important;
   }
 
   .mob-nav-btn {
-    min-height: 58px;
+    min-height: unset !important;
+    height: 52px !important;
   }
 
   h1 {

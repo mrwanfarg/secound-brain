@@ -268,7 +268,10 @@ class App {
         mobileBtn.innerHTML = `👤 ${initial}`;
         mobileBtn.title = user.email;
         mobileBtn.onclick = () => {
-          this.navigateTo('Settings');
+          const sidebar = document.querySelector('.sidebar');
+          const overlay = document.getElementById('sidebarOverlay');
+          if (sidebar) sidebar.classList.add('open');
+          if (overlay) overlay.classList.add('visible');
         };
       }
     } else {
