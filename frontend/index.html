@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Second Brain Command Center - Full-Stack Task Scheduling, Habit Tracking & Productivity Management System">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b0a10">
   <title>Second Brain ⚡ | Task Scheduling & Personal Command Center</title>
 
   <!-- Google Fonts: Inter -->
@@ -18,17 +22,24 @@
   <link rel="stylesheet" href="css/pages.css">
 </head>
 <body>
-  <!-- Mobile Header Bar -->
+  <!-- Mobile Header Bar (shows on phones/tablets) -->
   <header class="mobile-header">
+    <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
     <div style="display: flex; align-items: center; gap: 8px;">
-      <span style="font-weight: 800; color: var(--violet); font-size: 16px;">⚡ Second Brain</span>
+      <span style="font-weight: 800; color: var(--violet); font-size: 17px; letter-spacing: -0.5px;">⚡ Second Brain</span>
     </div>
-    <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
+    <button class="mobile-auth-btn" id="mobileAuthBtn" aria-label="Account">👤</button>
   </header>
 
   <div class="app">
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="mainSidebar">
       <div class="brand">
         <div class="brand-icon">
           <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -70,20 +81,17 @@
         <button class="nav-item" data-page="Tasks">
           <span class="nav-icon">☑</span> Task Scheduler
         </button>
-        <button class="nav-item" data-page="projects">
-          <span class="nav-icon">▦</span> Projects
-        </button>
         <button class="nav-item" data-page="Goals">
           <span class="nav-icon">◎</span> Goals
         </button>
         <button class="nav-item" data-page="Notes">
-          <span class="nav-icon">▤</span> Notes & Ideas
+          <span class="nav-icon">▤</span> Notes &amp; Ideas
         </button>
         <button class="nav-item" data-page="Insights">
-          <span class="nav-icon">⌁</span> Insights & Analytics
+          <span class="nav-icon">⌁</span> Insights &amp; Analytics
         </button>
         <button class="nav-item" data-page="Settings">
-          <span class="nav-icon">⚙</span> Settings & Sync
+          <span class="nav-icon">⚙</span> Settings &amp; Sync
         </button>
       </nav>
 
@@ -93,15 +101,18 @@
           <span id="sidebarServerText">Online (API Active)</span>
         </div>
 
-        <div class="profile">
+        <div class="profile" id="sidebarProfileSection">
           <div class="avatar">⚡</div>
           <div>
             <div class="profile-name">Command Workspace</div>
-            <div class="profile-role">Full-Stack Local & Cloud</div>
+            <div class="profile-role">Full-Stack Local &amp; Cloud</div>
           </div>
         </div>
       </div>
     </aside>
+
+    <!-- Dark overlay — closes sidebar on mobile tap -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- MAIN VIEW AREA -->
     <main class="main">
@@ -125,11 +136,39 @@
       <!-- DYNAMIC PAGE VIEW CONTAINER -->
       <div id="mainViewContainer"></div>
 
-      <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); text-align: center; letter-spacing: 0.8px;">
-        SECOND BRAIN · FULL-STACK TASK SCHEDULER & COMMAND CENTER
+      <footer style="margin-top: 50px; padding-top: 20px; padding-bottom: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); text-align: center; letter-spacing: 0.8px;">
+        SECOND BRAIN · FULL-STACK TASK SCHEDULER &amp; COMMAND CENTER
       </footer>
     </main>
   </div>
+
+  <!-- Mobile Bottom Navigation Bar (visible on phones/tablets only) -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+    <button class="mob-nav-btn active" data-page="Dashboard" id="mobnav-Dashboard">
+      <span class="mob-nav-icon">⌂</span>
+      <span class="mob-nav-label">Home</span>
+    </button>
+    <button class="mob-nav-btn" data-page="Today" id="mobnav-Today">
+      <span class="mob-nav-icon">◷</span>
+      <span class="mob-nav-label">Today</span>
+    </button>
+    <button class="mob-nav-btn" data-page="Weekly" id="mobnav-Weekly">
+      <span class="mob-nav-icon">▦</span>
+      <span class="mob-nav-label">Habits</span>
+    </button>
+    <button class="mob-nav-btn" data-page="Tasks" id="mobnav-Tasks">
+      <span class="mob-nav-icon">☑</span>
+      <span class="mob-nav-label">Tasks</span>
+    </button>
+    <button class="mob-nav-btn" data-page="Notes" id="mobnav-Notes">
+      <span class="mob-nav-icon">▤</span>
+      <span class="mob-nav-label">Notes</span>
+    </button>
+    <button class="mob-nav-btn" data-page="Settings" id="mobnav-Settings">
+      <span class="mob-nav-icon">⚙</span>
+      <span class="mob-nav-label">More</span>
+    </button>
+  </nav>
 
   <!-- Main ES Module Script -->
   <script type="module" src="js/app.js"></script>

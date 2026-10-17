@@ -233,11 +233,30 @@ class App {
   bindMobileMenu() {
     const toggleBtn = document.getElementById('mobileMenuToggle');
     const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
     if (toggleBtn && sidebar) {
       toggleBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
+        const isOpen = sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('visible', isOpen);
       });
     }
+
+    // Close sidebar when clicking the overlay
+    if (overlay) {
+      overlay.addEventListener('click', () => {
+        sidebar?.classList.remove('open');
+        overlay.classList.remove('visible');
+      });
+    }
+
+    // Mobile bottom nav
+    document.querySelectorAll('.mob-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = btn.dataset.page;
+        if (page) this.navigateTo(page);
+      });
+    });
   }
 
   navigateTo(page) {
@@ -260,10 +279,21 @@ class App {
     if (subEl) subEl.textContent = meta.subtitle;
     if (breadcrumbEl) breadcrumbEl.textContent = meta.breadcrumb;
 
-    // Update active nav button
+    // Update active nav button (sidebar)
     document.querySelectorAll('.nav-item').forEach(button => {
       button.classList.toggle('active', button.dataset.page === page);
     });
+
+    // Update active mobile bottom nav button
+    document.querySelectorAll('.mob-nav-btn').forEach(button => {
+      button.classList.toggle('active', button.dataset.page === page);
+    });
+
+    // Close mobile sidebar if open
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('visible');
 
     // Render Page View
     const mainViewContainer = document.getElementById('mainViewContainer');

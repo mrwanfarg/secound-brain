@@ -2,7 +2,6 @@
    SHARED REUSABLE UI COMPONENTS
    ============================================================ */
 
-/* 1. BUTTONS */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -18,6 +17,8 @@
   line-height: 1.2;
   transition: all var(--transition-fast);
   user-select: none;
+  min-height: 38px;
+  touch-action: manipulation;
 }
 
 .btn:hover {
@@ -79,15 +80,37 @@
 }
 
 .btn-small {
-  padding: 6px 10px;
-  font-size: 11px;
+  padding: 7px 12px;
+  font-size: 12px;
+  min-height: 34px;
 }
 
 .btn-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
   padding: 0;
   border-radius: var(--radius-sm);
+}
+
+@media (max-width: 640px) {
+  .btn {
+    min-height: 44px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .btn-small {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .btn-icon {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
 }
 
 /* 2. STAT CARD */
@@ -229,12 +252,13 @@
 }
 
 .task-check {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 5px;
   accent-color: var(--violet);
   cursor: pointer;
   flex-shrink: 0;
+  touch-action: manipulation;
 }
 
 .task-details {
@@ -349,17 +373,19 @@
 }
 
 .filter-pill {
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all var(--transition-fast);
+  min-height: 36px;
+  touch-action: manipulation;
 }
 
 .filter-pill:hover {
@@ -428,13 +454,15 @@
 
 .field {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   color: var(--text);
   background: #0d0c13;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 14px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .field:focus {
@@ -504,6 +532,34 @@ select.field {
   transform: scale(1) translateY(0);
 }
 
+@media (max-width: 640px) {
+  .modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-dialog {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-width: 100%;
+    transform: translateY(100%);
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .modal-backdrop.open .modal-dialog {
+    transform: translateY(0);
+  }
+
+  .modal-body {
+    max-height: 65vh;
+    padding-bottom: 30px;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -554,13 +610,20 @@ select.field {
 /* 8. TOAST SYSTEM */
 .toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 80px;
+  right: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 1200;
   pointer-events: none;
+}
+
+@media (min-width: 641px) {
+  .toast-container {
+    bottom: 24px;
+    right: 24px;
+  }
 }
 
 .toast {

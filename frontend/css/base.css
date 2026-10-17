@@ -16,7 +16,7 @@ body {
   background-image: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -63,7 +63,9 @@ textarea:focus-visible, select:focus-visible {
   width: 100%;
 }
 
-/* SIDEBAR */
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
 .sidebar {
   width: 250px;
   flex-shrink: 0;
@@ -217,6 +219,7 @@ textarea:focus-visible, select:focus-visible {
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 8px var(--green);
+  flex-shrink: 0;
 }
 
 .server-status-dot.offline {
@@ -230,11 +233,13 @@ textarea:focus-visible, select:focus-visible {
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+  cursor: pointer;
 }
 
 .avatar {
   width: 36px;
   height: 36px;
+  min-width: 36px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -242,21 +247,49 @@ textarea:focus-visible, select:focus-visible {
   color: var(--violet-light);
   font-weight: 700;
   border: 1px solid rgba(155, 123, 255, 0.3);
+  font-size: 14px;
 }
 
 .profile-name {
   font-size: 12px;
   font-weight: 650;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
 }
 
 .profile-role {
   margin-top: 2px;
   font-size: 10px;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
 }
 
-/* MAIN LAYOUT */
+/* Sidebar Overlay (mobile) */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 4, 8, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.sidebar-overlay.visible {
+  display: block;
+  opacity: 1;
+}
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
 .main {
   flex: 1;
   min-width: 0;
@@ -265,29 +298,133 @@ textarea:focus-visible, select:focus-visible {
   margin: 0 auto;
 }
 
-/* Mobile Toggle Header */
+/* ============================================================
+   MOBILE HEADER (phones & tablets)
+   ============================================================ */
 .mobile-header {
   display: none;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  background: var(--panel);
+  padding: 14px 18px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+  background: rgba(16, 15, 23, 0.95);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 90;
+  z-index: 200;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .mobile-toggle-btn {
-  padding: 6px 10px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--panel-2);
   color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 18px;
+  flex-shrink: 0;
 }
 
-/* TOPBAR */
+.mobile-auth-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(155, 123, 255, 0.35);
+  background: var(--violet-dark);
+  color: var(--violet-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION BAR
+   ============================================================ */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(12, 11, 19, 0.97);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-bottom-nav-inner {
+  display: flex;
+  align-items: stretch;
+}
+
+.mob-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  transition: all var(--transition-fast);
+  min-height: 60px;
+  position: relative;
+}
+
+.mob-nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 2px;
+  background: var(--violet);
+  border-radius: 0 0 2px 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.mob-nav-btn.active {
+  color: var(--violet-light);
+}
+
+.mob-nav-btn.active::before {
+  opacity: 1;
+}
+
+.mob-nav-btn.active .mob-nav-icon {
+  transform: scale(1.2);
+}
+
+.mob-nav-icon {
+  font-size: 20px;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.mob-nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1;
+}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -311,7 +448,7 @@ textarea:focus-visible, select:focus-visible {
 
 h1 {
   margin: 0;
-  font-size: clamp(24px, 2.5vw, 32px);
+  font-size: clamp(22px, 3vw, 32px);
   font-weight: 800;
   letter-spacing: -0.8px;
   color: var(--text);
@@ -328,6 +465,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .date-badge {
@@ -342,11 +480,14 @@ h1 {
   box-shadow: var(--shadow-sm);
 }
 
-/* Responsive adjustments */
+/* ============================================================
+   RESPONSIVE — TABLET (max 900px)
+   ============================================================ */
 @media (max-width: 900px) {
   .app {
     flex-direction: column;
   }
+
   .sidebar {
     position: fixed;
     top: 0;
@@ -354,18 +495,90 @@ h1 {
     height: 100vh;
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
+    z-index: 300;
   }
+
   .sidebar.open {
     transform: translateX(0);
   }
+
   .mobile-header {
     display: flex;
   }
+
   .main {
-    padding: 20px 16px 40px;
+    padding: 20px 18px 120px;
   }
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 14px;
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .date-badge {
+    flex: 1;
+    text-align: center;
+  }
+
+  #topbarNewTaskBtn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — PHONES (max 640px)
+   ============================================================ */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+
+  .main {
+    padding: 16px 14px 130px;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Show the inner flex row */
+  .mobile-bottom-nav > * {
+    display: flex;
+  }
+
+  .mob-nav-btn {
+    min-height: 58px;
+  }
+
+  h1 {
+    font-size: clamp(20px, 6vw, 26px);
+  }
+
+  .topbar {
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — SMALL PHONES (max 400px)
+   ============================================================ */
+@media (max-width: 400px) {
+  .main {
+    padding: 14px 12px 130px;
+  }
+
+  .mob-nav-label {
+    font-size: 9px;
   }
 }
