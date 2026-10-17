@@ -4,7 +4,7 @@ import { auth } from './auth.js';
 class Store {
   constructor() {
     this.state = {
-      user: null,
+      user: auth.getCurrentUser(),
       currentPage: 'Dashboard',
       tasks: [],
       projects: [],

@@ -21,120 +21,244 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <!-- Mobile Header Bar -->
-  <header class="mobile-header">
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span style="font-weight: 800; color: var(--violet); font-size: 16px;">⚡ Second Brain</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <button class="btn btn-small btn-secondary" id="mobileAuthBtn" style="padding: 4px 10px; font-size: 11px;">
-        ⚡ Account
-      </button>
-      <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
-    </div>
-  </header>
-
-  <div class="app">
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="brainGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#C4B5FD"/>
-                <stop offset="0.5" stop-color="#8B5CF6"/>
-                <stop offset="1" stop-color="#6D28D9"/>
-              </linearGradient>
-            </defs>
-            <path d="M30 13 C27 7 18 9 17 16 C10 15 7 23 11 28 C5 33 9 42 15 43 C13 51 21 56 28 51 L32 47 L32 17 Z"
-                  stroke="url(#brainGradient)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M34 13 C37 7 46 9 47 16 C54 15 57 23 53 28 C59 33 55 42 49 43 C51 51 43 56 36 51 L32 47 L32 17 Z"
-                  stroke="url(#brainGradient)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M32 17 V47 M17 21 C23 19 27 24 25 29 M12 32 C18 29 23 34 21 39 M19 45 C24 41 28 44 28 49 M47 21 C41 19 37 24 39 29 M52 32 C46 29 41 34 43 39 M45 45 C40 41 36 44 36 49"
-                  stroke="url(#brainGradient)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div>
-          <div class="brand-name">
-            <span class="brand-second">Second</span>
-            <span class="brand-brain">Brain</span>
-          </div>
-          <div class="brand-subtitle">Think Clear. Do More</div>
-        </div>
+  <!-- ========================================================
+       AUTH GATEKEEPER SCREEN (MANDATORY ONBOARDING & LOGIN)
+       Shown FIRST when user has no account.
+       Locks access to the dashboard until an account is created or signed in.
+       ======================================================== -->
+  <div id="authGatekeeperScreen" class="auth-gatekeeper-screen" style="display: none;">
+    <div class="auth-gatekeeper-card">
+      <div class="auth-gatekeeper-badge">
+        <svg viewBox="0 0 64 64" fill="none" class="auth-gatekeeper-icon">
+          <defs>
+            <linearGradient id="gateBrainGradientRoot" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#C4B5FD"/>
+              <stop offset="0.5" stop-color="#8B5CF6"/>
+              <stop offset="1" stop-color="#6D28D9"/>
+            </linearGradient>
+          </defs>
+          <path d="M30 13 C27 7 18 9 17 16 C10 15 7 23 11 28 C5 33 9 42 15 43 C13 51 21 56 28 51 L32 47 L32 17 Z"
+                stroke="url(#gateBrainGradientRoot)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M34 13 C37 7 46 9 47 16 C54 15 57 23 53 28 C59 33 55 42 49 43 C51 51 43 56 36 51 L32 47 L32 17 Z"
+                stroke="url(#gateBrainGradientRoot)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M32 17 V47 M17 21 C23 19 27 24 25 29 M12 32 C18 29 23 34 21 39 M19 45 C24 41 28 44 28 49 M47 21 C41 19 37 24 39 29 M52 32 C46 29 41 34 43 39 M45 45 C40 41 36 44 36 49"
+                stroke="url(#gateBrainGradientRoot)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
 
-      <div class="nav-label">COMMAND CENTER</div>
-      <nav class="nav-list" id="mainNavigation">
-        <button class="nav-item active" data-page="Dashboard">
-          <span class="nav-icon">⌂</span> Dashboard
-        </button>
-        <button class="nav-item" data-page="Today">
-          <span class="nav-icon">◷</span> Today's Focus
-        </button>
-        <button class="nav-item" data-page="Weekly">
-          <span class="nav-icon">▦</span> Weekly Habits
-        </button>
-        <button class="nav-item" data-page="Tasks">
-          <span class="nav-icon">☑</span> Task Scheduler
-        </button>
-        <button class="nav-item" data-page="Goals">
-          <span class="nav-icon">◎</span> Goals
-        </button>
-        <button class="nav-item" data-page="Notes">
-          <span class="nav-icon">▤</span> Notes & Ideas
-        </button>
-        <button class="nav-item" data-page="Insights">
-          <span class="nav-icon">⌁</span> Insights & Analytics
-        </button>
-        <button class="nav-item" data-page="Settings">
-          <span class="nav-icon">⚙</span> Settings & Sync
-        </button>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <div class="server-status-pill">
-          <span class="server-status-dot" id="sidebarServerDot"></span>
-          <span id="sidebarServerText">Online (API Active)</span>
-        </div>
-
-        <div class="profile" id="sidebarProfileSection">
-          <div class="avatar">⚡</div>
-          <div style="flex: 1; min-width: 0;">
-            <div class="profile-name">Command Workspace</div>
-            <div class="profile-role">Full-Stack Local & Cloud</div>
-          </div>
-        </div>
+      <div class="auth-gatekeeper-brand">
+        <span class="brand-second">Second</span><span class="brand-brain">Brain</span>
       </div>
-    </aside>
+      <h2 class="auth-gatekeeper-title" id="gateTitle">إنشاء حساب جديد للبدء</h2>
+      <p class="auth-gatekeeper-subtitle" id="gateSubtitle">
+        أنشئ حسابك الخاص لتفعيل لوحة التحكم وجدول مهامك وعاداتك. حسابك يظل متثبتاً تلقائياً على هذا الجهاز.
+      </p>
 
-    <!-- MAIN VIEW AREA -->
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <div class="breadcrumb">
-            Workspace / <span id="breadcrumbPage">Overview</span>
-          </div>
-          <h1 id="pageTitle">Command Dashboard</h1>
-          <div class="page-subtitle" id="pageSubtitle">
-            Your schedule, habits, and cognitive progress — all in one unified control center.
-          </div>
+      <!-- Tabs: Create Account / Sign In -->
+      <div class="auth-gatekeeper-tabs">
+        <button type="button" class="auth-gate-tab active" id="gateTabSignUp">إنشاء حساب جديد</button>
+        <button type="button" class="auth-gate-tab" id="gateTabSignIn">تسجيل الدخول</button>
+      </div>
+
+      <!-- Auth Form -->
+      <form id="gateAuthForm" class="auth-gatekeeper-form">
+        <div class="auth-field-group" id="gateNameGroup">
+          <label for="gateNameInput">الاسم بالكامل (Full Name)</label>
+          <input type="text" id="gateNameInput" class="field" placeholder="مثال: مروان محمد" autocomplete="name">
         </div>
 
-        <div class="topbar-actions">
-          <div class="date-badge" id="currentDate"></div>
-          <button class="btn btn-primary btn-small" id="topbarNewTaskBtn">+ Schedule Task</button>
+        <div class="auth-field-group">
+          <label for="gateEmailInput">البريد الإلكتروني (Email Address) *</label>
+          <input type="email" id="gateEmailInput" class="field" placeholder="name@example.com" required autocomplete="email">
         </div>
-      </header>
 
-      <!-- DYNAMIC PAGE VIEW CONTAINER -->
-      <div id="mainViewContainer"></div>
+        <div class="auth-field-group">
+          <label for="gatePasswordInput">كلمة المرور (Password) *</label>
+          <input type="password" id="gatePasswordInput" class="field" placeholder="•••••••• (6 أحرف على الأقل)" required autocomplete="current-password">
+        </div>
 
-      <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); text-align: center; letter-spacing: 0.8px;">
-        SECOND BRAIN · FULL-STACK TASK SCHEDULER & COMMAND CENTER
-      </footer>
-    </main>
+        <div id="gateErrorMessage" class="auth-gate-error" style="display: none;"></div>
+
+        <button type="submit" id="gateSubmitBtn" class="btn btn-primary auth-gate-submit-btn">
+          <span>إنشاء الحساب ودخول الـ Dashboard ⚡</span>
+        </button>
+      </form>
+
+      <div class="auth-gatekeeper-footer">
+        <span class="auth-gatekeeper-persistence-badge">
+          🔒 حسابك متثبت دائماً على هذا المتصفح ولن تحتاج لتسجيل الدخول مرة أخرى عند الـ Refresh
+        </span>
+      </div>
+    </div>
   </div>
+
+  <!-- ========================================================
+       MAIN DASHBOARD SHELL
+       Hidden until user creates account or signs in!
+       ======================================================== -->
+  <div id="appContainer" style="display: none; min-height: 100vh; flex-direction: column;">
+    <!-- Mobile Header Bar -->
+    <header class="mobile-header">
+      <button class="mobile-toggle-btn" id="mobileMenuToggle" aria-label="Toggle navigation">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 800; color: var(--violet); font-size: 17px; letter-spacing: -0.5px;">⚡ Second Brain</span>
+      </div>
+      <button class="mobile-auth-btn" id="mobileAuthBtn" aria-label="Account">👤</button>
+    </header>
+
+    <div class="app">
+      <!-- SIDEBAR -->
+      <aside class="sidebar" id="mainSidebar">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="brainGradientRoot2" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#C4B5FD"/>
+                  <stop offset="0.5" stop-color="#8B5CF6"/>
+                  <stop offset="1" stop-color="#6D28D9"/>
+                </linearGradient>
+              </defs>
+              <path d="M30 13 C27 7 18 9 17 16 C10 15 7 23 11 28 C5 33 9 42 15 43 C13 51 21 56 28 51 L32 47 L32 17 Z"
+                    stroke="url(#brainGradientRoot2)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M34 13 C37 7 46 9 47 16 C54 15 57 23 53 28 C59 33 55 42 49 43 C51 51 43 56 36 51 L32 47 L32 17 Z"
+                    stroke="url(#brainGradientRoot2)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M32 17 V47 M17 21 C23 19 27 24 25 29 M12 32 C18 29 23 34 21 39 M19 45 C24 41 28 44 28 49 M47 21 C41 19 37 24 39 29 M52 32 C46 29 41 34 43 39 M45 45 C40 41 36 44 36 49"
+                    stroke="url(#brainGradientRoot2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-name">
+              <span class="brand-second">Second</span>
+              <span class="brand-brain">Brain</span>
+            </div>
+            <div class="brand-subtitle">Think Clear. Do More</div>
+          </div>
+        </div>
+
+        <div class="nav-label">COMMAND CENTER</div>
+        <nav class="nav-list" id="mainNavigation">
+          <button class="nav-item active" data-page="Dashboard">
+            <span class="nav-icon">⌂</span> Dashboard
+          </button>
+          <button class="nav-item" data-page="Today">
+            <span class="nav-icon">◷</span> Today's Focus
+          </button>
+          <button class="nav-item" data-page="Weekly">
+            <span class="nav-icon">▦</span> Weekly Habits
+          </button>
+          <button class="nav-item" data-page="Tasks">
+            <span class="nav-icon">☑</span> Task Scheduler
+          </button>
+          <button class="nav-item" data-page="Notes">
+            <span class="nav-icon">▤</span> Notes &amp; Ideas
+          </button>
+          <button class="nav-item" data-page="Insights">
+            <span class="nav-icon">⌁</span> Insights &amp; Analytics
+          </button>
+          <button class="nav-item" data-page="Settings">
+            <span class="nav-icon">⚙</span> Settings &amp; Sync
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="server-status-pill">
+            <span class="server-status-dot" id="sidebarServerDot"></span>
+            <span id="sidebarServerText">Online (API Active)</span>
+          </div>
+
+          <div class="profile" id="sidebarProfileSection">
+            <div class="avatar">⚡</div>
+            <div>
+              <div class="profile-name">Command Workspace</div>
+              <div class="profile-role">Full-Stack Local &amp; Cloud</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Dark overlay — closes sidebar on mobile tap -->
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <!-- MAIN VIEW AREA -->
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <div class="breadcrumb">
+              Workspace / <span id="breadcrumbPage">Overview</span>
+            </div>
+            <h1 id="pageTitle">Command Dashboard</h1>
+            <div class="page-subtitle" id="pageSubtitle">
+              Your schedule, habits, and cognitive progress — all in one unified control center.
+            </div>
+          </div>
+
+          <div class="topbar-actions">
+            <div class="date-badge" id="currentDate"></div>
+            <button class="btn btn-primary btn-small" id="topbarNewTaskBtn">+ Schedule Task</button>
+          </div>
+        </header>
+
+        <!-- DYNAMIC PAGE VIEW CONTAINER -->
+        <div id="mainViewContainer"></div>
+
+        <footer style="margin-top: 50px; padding-top: 20px; padding-bottom: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); text-align: center; letter-spacing: 0.8px;">
+          SECOND BRAIN · FULL-STACK TASK SCHEDULER &amp; COMMAND CENTER
+        </footer>
+      </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar (visible on phones/tablets only) -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile navigation">
+      <button class="mob-nav-btn active" data-page="Dashboard" id="mobnav-Dashboard">
+        <span class="mob-nav-icon">⌂</span>
+        <span class="mob-nav-label">Home</span>
+      </button>
+      <button class="mob-nav-btn" data-page="Today" id="mobnav-Today">
+        <span class="mob-nav-icon">◷</span>
+        <span class="mob-nav-label">Today</span>
+      </button>
+      <button class="mob-nav-btn" data-page="Weekly" id="mobnav-Weekly">
+        <span class="mob-nav-icon">▦</span>
+        <span class="mob-nav-label">Habits</span>
+      </button>
+      <button class="mob-nav-btn" data-page="Tasks" id="mobnav-Tasks">
+        <span class="mob-nav-icon">☑</span>
+        <span class="mob-nav-label">Tasks</span>
+      </button>
+      <button class="mob-nav-btn" data-page="Notes" id="mobnav-Notes">
+        <span class="mob-nav-icon">▤</span>
+        <span class="mob-nav-label">Notes</span>
+      </button>
+      <button class="mob-nav-btn" data-page="Settings" id="mobnav-Settings">
+        <span class="mob-nav-icon">⚙</span>
+        <span class="mob-nav-label">More</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Immediate Session Check to prevent any UI flashing -->
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('secondBrain_auth_session') || localStorage.getItem('secondBrain_current_user');
+        if (saved) {
+          var parsed = JSON.parse(saved);
+          if (parsed && parsed.id && parsed.email) {
+            document.getElementById('appContainer').style.display = 'flex';
+            return;
+          }
+        }
+      } catch (e) {}
+      document.getElementById('authGatekeeperScreen').style.display = 'flex';
+    })();
+  </script>
 
   <!-- Main ES Module Script -->
   <script type="module" src="./frontend/js/app.js"></script>

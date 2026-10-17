@@ -6,7 +6,6 @@ import { renderDashboardView } from './views/dashboardView.js';
 import { renderTodayView } from './views/todayView.js';
 import { renderTasksView } from './views/tasksView.js';
 import { renderWeeklyView } from './views/weeklyView.js';
-import { renderGoalsView } from './views/goalsView.js';
 import { renderNotesView } from './views/notesView.js';
 import { renderInsightsView } from './views/insightsView.js';
 import { renderSettingsView } from './views/settingsView.js';
@@ -79,20 +78,16 @@ class App {
       }
     });
 
-    // Initialize Store and Gatekeeper Auth
+    // Wire up dedicated Gatekeeper Onboarding & Login Screen
+    this.setupGatekeeper();
+
+    // Initialize Store
     store.init().then(() => {
       const user = auth.getCurrentUser();
-      if (!user) {
-        // Enforce mandatory login/signup before opening the dashboard
-        AuthModal.open({
-          mode: 'signup',
-          isGatekeeper: true,
-          onSuccess: () => {
-            this.navigateTo('Dashboard');
-          }
-        });
+      if (user) {
+        this.unlockDashboard();
       } else {
-        this.navigateTo('Dashboard');
+        this.lockDashboard('signup');
       }
     });
 
@@ -109,6 +104,125 @@ class App {
     // Update user profile avatar and actions in sidebar & mobile header
     store.subscribe('user', user => this.renderUserProfile(user));
     this.renderUserProfile(store.state.user);
+  }
+
+  setupGatekeeper() {
+    const gateScreen = document.getElementById('authGatekeeperScreen');
+    const appContainer = document.getElementById('appContainer');
+    const form = document.getElementById('gateAuthForm');
+    const tabSignUp = document.getElementById('gateTabSignUp');
+    const tabSignIn = document.getElementById('gateTabSignIn');
+    const nameGroup = document.getElementById('gateNameGroup');
+    const nameInput = document.getElementById('gateNameInput');
+    const emailInput = document.getElementById('gateEmailInput');
+    const passwordInput = document.getElementById('gatePasswordInput');
+    const submitBtn = document.getElementById('gateSubmitBtn');
+    const errorEl = document.getElementById('gateErrorMessage');
+    const titleEl = document.getElementById('gateTitle');
+    const subtitleEl = document.getElementById('gateSubtitle');
+
+    if (!gateScreen || !appContainer) return;
+
+    let currentMode = 'signup';
+
+    const setMode = mode => {
+      currentMode = mode;
+      if (errorEl) {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+      }
+      if (mode === 'signup') {
+        tabSignUp?.classList.add('active');
+        tabSignIn?.classList.remove('active');
+        if (nameGroup) nameGroup.style.display = 'block';
+        if (titleEl) titleEl.textContent = 'إنشاء حساب جديد للبدء';
+        if (subtitleEl) subtitleEl.textContent = 'أنشئ حسابك الخاص لتفعيل لوحة التحكم وجدول مهامك وعاداتك. حسابك يظل متثبتاً تلقائياً على هذا الجهاز.';
+        if (submitBtn) submitBtn.innerHTML = '<span>إنشاء الحساب ودخول الـ Dashboard ⚡</span>';
+      } else {
+        tabSignUp?.classList.remove('active');
+        tabSignIn?.classList.add('active');
+        if (nameGroup) nameGroup.style.display = 'none';
+        if (titleEl) titleEl.textContent = 'تسجيل الدخول إلى حسابك';
+        if (subtitleEl) subtitleEl.textContent = 'أدخل بريدك وكلمة المرور للوصول إلى لوحة التحكم الخاصة بك.';
+        if (submitBtn) submitBtn.innerHTML = '<span>تسجيل الدخول ودخول الـ Dashboard ⚡</span>';
+      }
+    };
+
+    tabSignUp?.addEventListener('click', () => setMode('signup'));
+    tabSignIn?.addEventListener('click', () => setMode('signin'));
+
+    form?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = (emailInput?.value || '').trim();
+      const password = (passwordInput?.value || '').trim();
+      const name = (nameInput?.value || '').trim();
+
+      if (errorEl) {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+      }
+
+      const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>جاري التحقق والدخول... ⏳</span>';
+      }
+
+      try {
+        if (currentMode === 'signup') {
+          const res = await auth.signUp({ name, email, password });
+          Toast.success(res.message || 'تم إنشاء الحساب بنجاح! ⚡');
+        } else {
+          await auth.signIn({ email, password });
+          Toast.success('أهلاً بك مجدداً! ⚡');
+        }
+
+        // Unlock Dashboard directly
+        this.unlockDashboard();
+      } catch (err) {
+        if (errorEl) {
+          errorEl.style.display = 'block';
+          errorEl.textContent = err.message || 'حدث خطأ في التسجيل';
+        }
+        Toast.error(err.message || 'فشل التسجيل');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalHtml;
+        }
+      }
+    });
+
+    // Initial check: if already authenticated, unlock dashboard immediately
+    const user = auth.getCurrentUser();
+    if (user) {
+      this.unlockDashboard();
+    } else {
+      this.lockDashboard('signup');
+    }
+  }
+
+  unlockDashboard() {
+    const gateScreen = document.getElementById('authGatekeeperScreen');
+    const appContainer = document.getElementById('appContainer');
+    if (gateScreen) gateScreen.style.display = 'none';
+    if (appContainer) {
+      appContainer.style.display = 'flex';
+    }
+    this.navigateTo(this.currentPage || 'Dashboard');
+  }
+
+  lockDashboard(mode = 'signup') {
+    const gateScreen = document.getElementById('authGatekeeperScreen');
+    const appContainer = document.getElementById('appContainer');
+    if (appContainer) appContainer.style.display = 'none';
+    if (gateScreen) {
+      gateScreen.style.display = 'flex';
+      const tabSignUp = document.getElementById('gateTabSignUp');
+      const tabSignIn = document.getElementById('gateTabSignIn');
+      if (mode === 'signup') tabSignUp?.click();
+      else tabSignIn?.click();
+    }
   }
 
   renderUserProfile(user) {
@@ -139,12 +253,8 @@ class App {
         container.querySelector('#sidebarLogoutBtn')?.addEventListener('click', async e => {
           e.stopPropagation();
           await auth.signOut();
-          Toast.info('Signed out of workspace.');
-          AuthModal.open({
-            mode: 'signin',
-            isGatekeeper: true,
-            onSuccess: () => this.navigateTo('Dashboard')
-          });
+          Toast.info('تم تسجيل الخروج بنجاح.');
+          this.lockDashboard('signin');
         });
 
         container.onclick = e => {
@@ -169,14 +279,14 @@ class App {
           </button>
         `;
         container.querySelector('#sidebarAuthBtn')?.addEventListener('click', () => {
-          AuthModal.open({ mode: 'signup', isGatekeeper: true, onSuccess: () => this.navigateTo('Dashboard') });
+          this.lockDashboard('signup');
         });
       }
 
       if (mobileBtn) {
         mobileBtn.innerHTML = '⚡ Sign In';
         mobileBtn.onclick = () => {
-          AuthModal.open({ mode: 'signup', isGatekeeper: true, onSuccess: () => this.navigateTo('Dashboard') });
+          this.lockDashboard('signup');
         };
       }
     }

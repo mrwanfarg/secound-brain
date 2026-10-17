@@ -893,3 +893,191 @@
   accent-color: var(--cyan) !important;
 }
 
+/* ============================================================
+   AUTH GATEKEEPER SCREEN (MANDATORY ONBOARDING & LOGIN PORTAL)
+   ============================================================ */
+.auth-gatekeeper-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  background: radial-gradient(circle at 50% 15%, rgba(139, 92, 246, 0.22) 0%, rgba(9, 6, 17, 0.98) 75%), #090611;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  overflow-y: auto;
+}
+
+.auth-gatekeeper-card {
+  width: 100%;
+  max-width: 450px;
+  background: linear-gradient(180deg, rgba(28, 20, 46, 0.95) 0%, rgba(15, 11, 26, 0.98) 100%);
+  border: 1px solid rgba(155, 123, 255, 0.32);
+  border-radius: 22px;
+  padding: 38px 32px 28px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.85), 0 0 60px rgba(139, 92, 246, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  text-align: center;
+  margin: auto;
+}
+
+.auth-gatekeeper-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 32px rgba(124, 58, 237, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.auth-gatekeeper-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.auth-gatekeeper-brand {
+  font-size: 19px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+.auth-gatekeeper-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.auth-gatekeeper-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+.auth-gatekeeper-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 22px;
+  gap: 4px;
+}
+
+.auth-gate-tab {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.auth-gate-tab.active {
+  background: var(--violet);
+  color: #0b0714;
+  box-shadow: 0 2px 12px rgba(155, 123, 255, 0.4);
+}
+
+.auth-gatekeeper-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  text-align: left;
+}
+
+.auth-field-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.auth-field-group .field {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 13px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-field-group .field:focus {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+  outline: none;
+}
+
+.auth-gate-submit-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 6px;
+  border-radius: 10px;
+  min-height: 48px;
+  box-shadow: 0 4px 22px rgba(139, 92, 246, 0.4);
+}
+
+.auth-gate-error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 12px;
+  text-align: center;
+}
+
+.auth-gatekeeper-footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auth-gatekeeper-persistence-badge {
+  font-size: 11px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+  .auth-gatekeeper-screen {
+    padding: 16px 12px;
+  }
+  .auth-gatekeeper-card {
+    padding: 26px 18px 20px;
+    border-radius: 18px;
+  }
+  .auth-gatekeeper-title {
+    font-size: 19px;
+  }
+  .auth-gate-tab {
+    font-size: 11px;
+    padding: 8px 6px;
+  }
+}
+

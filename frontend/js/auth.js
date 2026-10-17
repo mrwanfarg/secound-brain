@@ -7,9 +7,39 @@ import { config } from './config.js';
 
 class AuthService {
   constructor() {
-    this.currentUser = null;
+    this.currentUser = this.loadStoredSession();
     this.listeners = new Set();
-    this.isInitialized = false;
+    this.isInitialized = Boolean(this.currentUser);
+  }
+
+  loadStoredSession() {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('secondBrain_auth_session') || localStorage.getItem('secondBrain_current_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id && parsed.email) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved auth session:', e);
+    }
+    return null;
+  }
+
+  saveSession(user) {
+    this.currentUser = user;
+    if (typeof localStorage !== 'undefined') {
+      if (user) {
+        const serialized = JSON.stringify(user);
+        localStorage.setItem('secondBrain_auth_session', serialized);
+        localStorage.setItem('secondBrain_current_user', serialized);
+      } else {
+        localStorage.removeItem('secondBrain_auth_session');
+        localStorage.removeItem('secondBrain_current_user');
+      }
+    }
   }
 
   async hashPassword(password) {
@@ -29,72 +59,58 @@ class AuthService {
   }
 
   async init() {
-    if (this.isInitialized) return this.currentUser;
+    // If we already have a synchronous local user, keep it
+    if (!this.currentUser) {
+      this.currentUser = this.loadStoredSession();
+    }
 
     const supabase = getSupabase();
     if (supabase) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          this.currentUser = {
+          const cloudUser = {
             id: session.user.id,
             email: session.user.email,
             name: session.user.user_metadata?.name || session.user.email.split('@')[0],
             isCloud: true
           };
-          // Persist cloud session locally too
-          localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
+          this.saveSession(cloudUser);
         }
 
         // Listen for Supabase auth state changes
         supabase.auth.onAuthStateChange((event, session) => {
           if (session?.user) {
-            this.currentUser = {
+            const cloudUser = {
               id: session.user.id,
               email: session.user.email,
               name: session.user.user_metadata?.name || session.user.email.split('@')[0],
               isCloud: true
             };
-            localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
+            this.saveSession(cloudUser);
+            this.notify();
           } else if (event === 'SIGNED_OUT') {
-            this.currentUser = null;
-            localStorage.removeItem('secondBrain_auth_session');
+            // CRITICAL: Only clear session if currently logged in via Supabase cloud!
+            // Do NOT wipe out local multi-account users when Supabase fires unauthenticated event.
+            if (this.currentUser && this.currentUser.isCloud) {
+              this.saveSession(null);
+              this.notify();
+            }
           }
-          this.notify();
         });
       } catch (err) {
         console.warn('Supabase auth session check failed:', err);
       }
     }
 
-    // If not logged in via Supabase, restore local session from localStorage
-    if (!this.currentUser && typeof localStorage !== 'undefined') {
-      try {
-        const savedSession = localStorage.getItem('secondBrain_auth_session');
-        if (savedSession) {
-          const parsed = JSON.parse(savedSession);
-          // Validate saved session has required fields
-          if (parsed && parsed.id && parsed.email) {
-            this.currentUser = parsed;
-          } else {
-            localStorage.removeItem('secondBrain_auth_session');
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to parse local auth session:', e);
-        localStorage.removeItem('secondBrain_auth_session');
-      }
-    }
-
     this.isInitialized = true;
-    // Notify all listeners with the restored user (even if null)
     this.notify();
     return this.currentUser;
   }
 
   onAuthChange(fn) {
     this.listeners.add(fn);
-    if (this.isInitialized) {
+    if (this.isInitialized || this.currentUser) {
       fn(this.currentUser);
     }
     return () => this.listeners.delete(fn);
@@ -105,11 +121,15 @@ class AuthService {
   }
 
   getCurrentUser() {
+    if (!this.currentUser) {
+      this.currentUser = this.loadStoredSession();
+    }
     return this.currentUser;
   }
 
   getUserId() {
-    return this.currentUser ? this.currentUser.id : 'guest';
+    const user = this.getCurrentUser();
+    return user ? user.id : 'guest';
   }
 
   async signUp({ name, email, password }) {
@@ -135,12 +155,13 @@ class AuthService {
       if (error) throw new Error(error.message);
 
       if (data?.user) {
-        this.currentUser = {
+        const cloudUser = {
           id: data.user.id,
           email: data.user.email,
           name: cleanName,
           isCloud: true
         };
+        this.saveSession(cloudUser);
         this.notify();
         return { success: true, user: this.currentUser, message: 'Account created in Supabase cloud!' };
       }
@@ -167,14 +188,14 @@ class AuthService {
     accounts.push(newAccount);
     localStorage.setItem('secondBrain_accounts', JSON.stringify(accounts));
 
-    this.currentUser = {
+    const localUser = {
       id: userId,
       name: cleanName,
       email: cleanEmail,
       isCloud: false
     };
 
-    localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
+    this.saveSession(localUser);
     this.notify();
     return { success: true, user: this.currentUser, message: 'Account created successfully! ⚡' };
   }
@@ -198,12 +219,13 @@ class AuthService {
       if (error) throw new Error(error.message);
 
       if (data?.user) {
-        this.currentUser = {
+        const cloudUser = {
           id: data.user.id,
           email: data.user.email,
           name: data.user.user_metadata?.name || cleanEmail.split('@')[0],
           isCloud: true
         };
+        this.saveSession(cloudUser);
         this.notify();
         return { success: true, user: this.currentUser };
       }
@@ -221,14 +243,14 @@ class AuthService {
       throw new Error('Incorrect password. Please verify and try again.');
     }
 
-    this.currentUser = {
+    const localUser = {
       id: account.id,
       name: account.name,
       email: account.email,
       isCloud: false
     };
 
-    localStorage.setItem('secondBrain_auth_session', JSON.stringify(this.currentUser));
+    this.saveSession(localUser);
     this.notify();
     return { success: true, user: this.currentUser };
   }
@@ -243,8 +265,7 @@ class AuthService {
       }
     }
 
-    localStorage.removeItem('secondBrain_auth_session');
-    this.currentUser = null;
+    this.saveSession(null);
     this.notify();
     return { success: true };
   }
