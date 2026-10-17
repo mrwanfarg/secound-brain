@@ -39,149 +39,28 @@ function getUserKey(entity) {
   return `secondBrain_${userId}_${entity}`;
 }
 
-// Ensure default starter template for new user accounts
+// Ensure clean, fresh workspace for user accounts - no pre-made habits or tasks
 function seedUserStarterData(userId, force = false) {
   if (typeof localStorage === 'undefined') return;
   const initKey = `secondBrain_${userId}_initialized`;
   if (!force && localStorage.getItem(initKey)) return;
 
-  // If this is the main legacy user and data exists in un-namespaced keys, migrate it over
-  const legacyTasks = localStorage.getItem('secondBrain_tasks');
-  if (legacyTasks && !force) {
-    try {
-      localStorage.setItem(`secondBrain_${userId}_tasks`, legacyTasks);
-      localStorage.setItem(`secondBrain_${userId}_projects`, localStorage.getItem('secondBrain_projects') || '[]');
-      localStorage.setItem(`secondBrain_${userId}_weekly`, localStorage.getItem('secondBrain_weekly') || '[]');
-      localStorage.setItem(`secondBrain_${userId}_notes`, localStorage.getItem('secondBrain_notes') || '[]');
-      localStorage.setItem(`secondBrain_${userId}_timers`, localStorage.getItem('secondBrain_timers') || '[]');
-      localStorage.setItem(`secondBrain_${userId}_intention`, localStorage.getItem('secondBrain_intention') || 'Focus deeply on top priorities.');
-      localStorage.setItem(initKey, 'true');
-      return;
-    } catch {}
+  // New users start completely clean with 0 habits, 0 tasks - they build their own schedule
+  if (!localStorage.getItem(`secondBrain_${userId}_tasks`) || force) {
+    localStorage.setItem(`secondBrain_${userId}_tasks`, '[]');
   }
-
-  const initialTasks = [
-    {
-      id: `task-1-${Date.now()}`,
-      title: 'Review Strategic Roadmap & Task Schedule',
-      description: 'Align upcoming product milestones and prioritize high-impact deliverables.',
-      dueDate: getTodayString(0),
-      dueTime: '10:00',
-      timeSlot: 'morning',
-      priority: 'high',
-      status: 'pending',
-      category: 'Deep Work',
-      projectId: 'proj-1',
-      estimatedMinutes: 45,
-      actualMinutes: 30,
-      completed: false,
-      createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
-    },
-    {
-      id: `task-2-${Date.now()}`,
-      title: 'Complete Personal System Goals',
-      description: 'Detail daily habits, high-yield tasks, and weekly targets.',
-      dueDate: getTodayString(0),
-      dueTime: '14:30',
-      timeSlot: 'afternoon',
-      priority: 'urgent',
-      status: 'in_progress',
-      category: 'Engineering',
-      projectId: 'proj-1',
-      estimatedMinutes: 60,
-      actualMinutes: 40,
-      completed: false,
-      createdAt: new Date(Date.now() - 3600000 * 12).toISOString()
-    },
-    {
-      id: `task-3-${Date.now()}`,
-      title: 'Gym Workout & Mobility Routine',
-      description: 'Strength training routine followed by cardio session.',
-      dueDate: getTodayString(0),
-      dueTime: '18:30',
-      timeSlot: 'evening',
-      priority: 'high',
-      status: 'completed',
-      category: 'Health',
-      projectId: 'proj-2',
-      estimatedMinutes: 75,
-      actualMinutes: 75,
-      completed: true,
-      completedAt: new Date().toISOString(),
-      createdAt: new Date(Date.now() - 3600000 * 20).toISOString()
-    }
-  ];
-
-  const initialProjects = [
-    {
-      id: 'proj-1',
-      name: 'Second Brain Command Center',
-      description: 'Personal productivity workspace for task scheduling, habits, and knowledge capture.',
-      dueDate: getTodayString(14),
-      status: 'In Progress',
-      progress: 65,
-      color: '#9b7bff',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'proj-2',
-      name: 'Physical Conditioning & Wellness',
-      description: 'Daily discipline tracker, strength routines, and nutrition scheduling.',
-      dueDate: getTodayString(60),
-      status: 'In Progress',
-      progress: 75,
-      color: '#ff9858',
-      createdAt: new Date().toISOString()
-    }
-  ];
-
-  const initialWeeklyGoals = [
-    {
-      id: `goal-1-${Date.now()}`,
-      name: 'Morning Workout & Mobility',
-      target: 5,
-      days: [true, true, true, false, false, false, false],
-      scheduledDays: [0, 1, 2, 3, 4, 5, 6],
-      weekKey: getSaturdayWeekKey(),
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: `goal-2-${Date.now()}`,
-      name: 'Deep Work Focus Sessions (2hr+)',
-      target: 5,
-      days: [true, true, false, false, false, false, false],
-      scheduledDays: [0, 1, 2, 3, 4],
-      weekKey: getSaturdayWeekKey(),
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: `goal-3-${Date.now()}`,
-      name: 'Read 20 Pages Non-fiction',
-      target: 6,
-      days: [true, true, true, true, false, false, false],
-      scheduledDays: [0, 1, 2, 3, 4, 5],
-      weekKey: getSaturdayWeekKey(),
-      createdAt: new Date().toISOString()
-    }
-  ];
-
-  const initialNotes = [
-    {
-      id: `note-1-${Date.now()}`,
-      title: 'Time Blocking & Energy Scheduling',
-      content: 'Cluster demanding technical & creative tasks during morning peak focus. Leave meetings, admin check-ins, and gym for afternoon/evening.',
-      tags: ['productivity', 'scheduling'],
-      pinned: true,
-      createdAt: new Date().toISOString()
-    }
-  ];
-
-  localStorage.setItem(`secondBrain_${userId}_tasks`, JSON.stringify(initialTasks));
-  localStorage.setItem(`secondBrain_${userId}_projects`, JSON.stringify(initialProjects));
-  localStorage.setItem(`secondBrain_${userId}_weekly`, JSON.stringify(initialWeeklyGoals));
-  localStorage.setItem(`secondBrain_${userId}_notes`, JSON.stringify(initialNotes));
-  localStorage.setItem(`secondBrain_${userId}_timers`, JSON.stringify([]));
-  localStorage.setItem(`secondBrain_${userId}_intention`, 'Execute high-impact goals with single-tasking discipline.');
+  if (!localStorage.getItem(`secondBrain_${userId}_weekly`) || force) {
+    localStorage.setItem(`secondBrain_${userId}_weekly`, '[]');
+  }
+  if (!localStorage.getItem(`secondBrain_${userId}_notes`) || force) {
+    localStorage.setItem(`secondBrain_${userId}_notes`, '[]');
+  }
+  if (!localStorage.getItem(`secondBrain_${userId}_timers`) || force) {
+    localStorage.setItem(`secondBrain_${userId}_timers`, '[]');
+  }
+  if (!localStorage.getItem(`secondBrain_${userId}_intention`) || force) {
+    localStorage.setItem(`secondBrain_${userId}_intention`, '');
+  }
   localStorage.setItem(initKey, 'true');
 }
 

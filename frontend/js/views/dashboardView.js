@@ -197,11 +197,11 @@ export function renderDashboardView(container) {
     }));
 
     grid.appendChild(createStatCard({
-      title: 'Active Projects',
-      value: activeProjectsCount,
-      caption: `${projects.length} total projects`,
+      title: 'Weekly Habits',
+      value: weeklyGoals.length,
+      caption: weeklyGoals.length > 0 ? `${weeklyGoals.length} habits active` : 'Build your routine',
       icon: '▦',
-      onClick: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'projects' } }))
+      onClick: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }))
     }));
 
     grid.appendChild(createStatCard({
@@ -329,6 +329,5 @@ export function renderDashboardView(container) {
     updateStats();
     renderNotesList();
   });
-  store.subscribe('projects', () => updateStats());
   store.subscribe('weeklyGoals', () => updateStats());
 }

@@ -252,24 +252,10 @@ export function openEditTaskModal(task = null, onSaved = null) {
   `;
 
   const row3 = document.createElement('div');
-  row3.className = 'form-grid-2';
-
-  const projectOptions = projects.map(p =>
-    `<option value="${p.id}" ${task && task.projectId === p.id ? 'selected' : ''}>${p.name}</option>`
-  ).join('');
-
+  row3.className = 'form-group';
   row3.innerHTML = `
-    <div class="form-group">
-      <label for="modalTaskProject">Linked Project</label>
-      <select id="modalTaskProject" class="field">
-        <option value="">No Project</option>
-        ${projectOptions}
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="modalTaskEst">Estimated Minutes</label>
-      <input type="number" id="modalTaskEst" class="field" min="5" step="5" value="${task ? task.estimatedMinutes || 30 : 30}">
-    </div>
+    <label for="modalTaskEst">Estimated Minutes</label>
+    <input type="number" id="modalTaskEst" class="field" min="5" step="5" value="${task ? task.estimatedMinutes || 30 : 30}">
   `;
 
   const catGroup = document.createElement('div');
@@ -310,7 +296,7 @@ export function openEditTaskModal(task = null, onSaved = null) {
             dueTime: form.querySelector('#modalTaskTime').value,
             priority: form.querySelector('#modalTaskPriority').value,
             timeSlot: form.querySelector('#modalTaskSlot').value,
-            projectId: form.querySelector('#modalTaskProject').value || null,
+            projectId: null,
             estimatedMinutes: Number(form.querySelector('#modalTaskEst').value) || 30,
             category: form.querySelector('#modalTaskCategory').value
           };

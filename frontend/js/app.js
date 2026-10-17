@@ -6,7 +6,6 @@ import { renderDashboardView } from './views/dashboardView.js';
 import { renderTodayView } from './views/todayView.js';
 import { renderTasksView } from './views/tasksView.js';
 import { renderWeeklyView } from './views/weeklyView.js';
-import { renderProjectsView } from './views/projectsView.js';
 import { renderGoalsView } from './views/goalsView.js';
 import { renderNotesView } from './views/notesView.js';
 import { renderInsightsView } from './views/insightsView.js';
@@ -34,11 +33,6 @@ const PAGE_META = {
     title: 'Task Scheduling Center',
     subtitle: 'Plan, categorize, and execute action items via List, Kanban, or Timeline view.',
     breadcrumb: 'Tasks'
-  },
-  projects: {
-    title: 'Projects Command',
-    subtitle: 'Organize deliverables, track milestones, and monitor task completion.',
-    breadcrumb: 'Projects'
   },
   Goals: {
     title: 'Strategic Objectives & Milestones',
@@ -70,7 +64,6 @@ class App {
       Today: renderTodayView,
       Weekly: renderWeeklyView,
       Tasks: renderTasksView,
-      projects: renderProjectsView,
       Goals: renderGoalsView,
       Notes: renderNotesView,
       Insights: renderInsightsView,
@@ -92,9 +85,21 @@ class App {
       }
     });
 
-    // Initialize Store and initial View
+    // Initialize Store and Gatekeeper Auth
     store.init().then(() => {
-      this.navigateTo('Dashboard');
+      const user = auth.getCurrentUser();
+      if (!user) {
+        // Enforce mandatory login/signup before opening the dashboard
+        AuthModal.open({
+          mode: 'signup',
+          isGatekeeper: true,
+          onSuccess: () => {
+            this.navigateTo('Dashboard');
+          }
+        });
+      } else {
+        this.navigateTo('Dashboard');
+      }
     });
 
     // Update server status dot in sidebar
@@ -141,6 +146,11 @@ class App {
           e.stopPropagation();
           await auth.signOut();
           Toast.info('Signed out of workspace.');
+          AuthModal.open({
+            mode: 'signin',
+            isGatekeeper: true,
+            onSuccess: () => this.navigateTo('Dashboard')
+          });
         });
 
         container.onclick = e => {
@@ -161,18 +171,18 @@ class App {
       if (container) {
         container.innerHTML = `
           <button type="button" class="btn btn-primary" id="sidebarAuthBtn" style="width: 100%; font-size: 11px; padding: 9px 12px; gap: 6px; box-shadow: 0 4px 14px rgba(155, 123, 255, 0.25);">
-            ⚡ Sign In / Register
+            ⚡ Create Account / Sign In
           </button>
         `;
         container.querySelector('#sidebarAuthBtn')?.addEventListener('click', () => {
-          AuthModal.open();
+          AuthModal.open({ mode: 'signup', isGatekeeper: true, onSuccess: () => this.navigateTo('Dashboard') });
         });
       }
 
       if (mobileBtn) {
         mobileBtn.innerHTML = '⚡ Sign In';
         mobileBtn.onclick = () => {
-          AuthModal.open();
+          AuthModal.open({ mode: 'signup', isGatekeeper: true, onSuccess: () => this.navigateTo('Dashboard') });
         };
       }
     }
@@ -231,6 +241,11 @@ class App {
   }
 
   navigateTo(page) {
+    if (!auth.getCurrentUser()) {
+      AuthModal.open({ mode: 'signup', isGatekeeper: true, onSuccess: () => this.navigateTo(page) });
+      return;
+    }
+
     if (!this.views[page]) page = 'Dashboard';
     this.currentPage = page;
     store.state.currentPage = page;

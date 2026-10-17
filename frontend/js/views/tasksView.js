@@ -28,12 +28,6 @@ export function renderTasksView(container) {
           <input type="text" class="field" id="tasksSearchInput" placeholder="Search tasks by title, category, or notes...">
         </div>
 
-        <!-- Project Filter -->
-        <div style="min-width: 170px;">
-          <select class="field" id="tasksProjectFilter">
-            <option value="">All Projects</option>
-          </select>
-        </div>
 
         <!-- View switcher -->
         <div class="view-switcher" id="tasksViewSwitcher">
@@ -81,21 +75,6 @@ export function renderTasksView(container) {
     renderCurrentView();
   });
 
-  // Project filter handler
-  const projectSelect = container.querySelector('#tasksProjectFilter');
-  function populateProjects() {
-    projectSelect.innerHTML = '<option value="">All Projects</option>';
-    store.state.projects.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = `▦ ${p.name}`;
-      projectSelect.appendChild(opt);
-    });
-  }
-  projectSelect.addEventListener('change', () => {
-    store.state.activeProjectFilter = projectSelect.value;
-    renderCurrentView();
-  });
 
   // View switch handler
   container.querySelectorAll('#tasksViewSwitcher .view-switch-btn').forEach(btn => {
@@ -306,10 +285,7 @@ export function renderTasksView(container) {
     target.appendChild(panel);
   }
 
-  // Initial render
-  populateProjects();
   renderCurrentView();
 
   store.subscribe('tasks', () => renderCurrentView());
-  store.subscribe('projects', () => populateProjects());
 }

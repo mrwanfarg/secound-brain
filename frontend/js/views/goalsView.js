@@ -16,9 +16,9 @@ export function renderGoalsView(container) {
     <!-- STRATEGIC OVERVIEW -->
     <div class="overview-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
       <div class="stat-card">
-        <div class="stat-top">Active Projects Alignment <span class="stat-icon">▦</span></div>
-        <div class="stat-number" id="goalsProjCount">0</div>
-        <div class="stat-caption">Projects contributing to goals</div>
+        <div class="stat-top">Weekly Habits Tracked <span class="stat-icon">▦</span></div>
+        <div class="stat-number" id="goalsHabitsCount">0</div>
+        <div class="stat-caption">Habits advancing your vision</div>
       </div>
       <div class="stat-card">
         <div class="stat-top">Weekly Habit Discipline <span class="stat-icon">✓</span></div>
@@ -109,7 +109,7 @@ export function renderGoalsView(container) {
   `;
 
   function updateMetrics() {
-    container.querySelector('#goalsProjCount').textContent = store.state.projects.length;
+    container.querySelector('#goalsHabitsCount').textContent = store.state.weeklyGoals.length;
     container.querySelector('#goalsDoneTasks').textContent = store.state.tasks.filter(t => t.completed).length;
 
     let target = 0, done = 0;
@@ -124,12 +124,11 @@ export function renderGoalsView(container) {
   }
 
   container.querySelector('#addNewGoalBtn').addEventListener('click', () => {
-    Toast.info('Goal creator: Link your vision to projects and habits.');
-    window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'projects' } }));
+    Toast.info('Goal creator: Link your vision to weekly habits.');
+    window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }));
   });
 
   updateMetrics();
   store.subscribe('tasks', () => updateMetrics());
-  store.subscribe('projects', () => updateMetrics());
   store.subscribe('weeklyGoals', () => updateMetrics());
 }
