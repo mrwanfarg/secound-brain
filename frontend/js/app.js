@@ -53,6 +53,8 @@ const PAGE_META = {
 class App {
   constructor() {
     this.currentPage = 'Dashboard';
+    this._refreshTimer = null;   // debounce handle for softRefresh
+    this._refreshing  = false;   // guard against re-entrant refresh
     this.views = {
       Dashboard: renderDashboardView,
       Today: renderTodayView,
@@ -104,6 +106,12 @@ class App {
     // Update user profile avatar and actions in sidebar & mobile header
     store.subscribe('user', user => this.renderUserProfile(user));
     this.renderUserProfile(store.state.user);
+
+    // Auto re-render current page when any key data changes
+    const liveKeys = ['tasks', 'weeklyGoals', 'timeSessions', 'stats', 'notes', 'projects'];
+    liveKeys.forEach(key => {
+      store.subscribe(key, () => this.softRefresh());
+    });
   }
 
   setupGatekeeper() {
@@ -414,10 +422,32 @@ class App {
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
+  /**
+   * Re-render the current page in-place (no scroll, no nav-highlight changes).
+   * Debounced to 120 ms so rapid store updates (tasks+weeklyGoals together)
+   * only cause one re-render. Guard flag prevents re-entrant loops.
+   */
+  softRefresh() {
+    if (this._refreshing) return;
+    clearTimeout(this._refreshTimer);
+    this._refreshTimer = setTimeout(() => {
+      if (this._refreshing) return;
+      const mainViewContainer = document.getElementById('mainViewContainer');
+      if (!mainViewContainer) return;
+      const viewRenderer = this.views[this.currentPage];
+      if (typeof viewRenderer !== 'function') return;
+      this._refreshing = true;
+      mainViewContainer.innerHTML = '';
+      viewRenderer(mainViewContainer);
+      this._refreshing = false;
+    }, 120);
+  }
 }
 
 // Start Application on DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
   const app = new App();
+  window.app = app; // expose globally so views can trigger refreshes
   app.init();
 });
