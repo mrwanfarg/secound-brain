@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Temporary files & logs
+*.tmp
+*.tmp.*
+logs/
+*.log
+
+# Editor directories
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

@@ -1,0 +1,71 @@
+:root {
+  /* Color Palette */
+  --bg: #0b0a10;
+  --bg-gradient: radial-gradient(circle at 15% 15%, rgba(155, 123, 255, 0.08) 0%, transparent 40%),
+                 radial-gradient(circle at 85% 85%, rgba(116, 214, 160, 0.04) 0%, transparent 45%);
+  --panel: #12111a;
+  --panel-2: #181622;
+  --panel-hover: #1e1b2b;
+  --panel-glass: rgba(18, 17, 26, 0.75);
+  --border: #292636;
+  --border-light: #38344b;
+  --border-focus: #9b7bff;
+
+  /* Typography Colors */
+  --text: #f1eff8;
+  --text-secondary: #c2bdd4;
+  --muted: #918da3;
+  --muted-light: #aba6be;
+
+  /* Brand Accents */
+  --violet: #9b7bff;
+  --violet-light: #bba6ff;
+  --violet-glow: rgba(155, 123, 255, 0.25);
+  --violet-dark: #211a32;
+  
+  /* Status Colors */
+  --green: #74d6a0;
+  --green-glow: rgba(116, 214, 160, 0.2);
+  --red: #ff7b88;
+  --red-glow: rgba(255, 123, 136, 0.2);
+  --amber: #ffb356;
+  --amber-glow: rgba(255, 179, 86, 0.2);
+  --cyan: #5be0eb;
+  --cyan-glow: rgba(91, 224, 235, 0.2);
+
+  /* Geometry & Physics */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 25px rgba(155, 123, 255, 0.18);
+}
+
+/* Theme variations */
+body[data-theme="midnight-blue"] {
+  --bg: #070d17;
+  --panel: #0e1726;
+  --panel-2: #142034;
+  --border: #1e304d;
+  --violet: #4da6ff;
+  --violet-light: #80c2ff;
+  --violet-glow: rgba(77, 166, 255, 0.25);
+  --violet-dark: #122847;
+}
+
+body[data-theme="cyber-emerald"] {
+  --bg: #07130f;
+  --panel: #0d2019;
+  --panel-2: #132d24;
+  --border: #1c4537;
+  --violet: #2fe09d;
+  --violet-light: #6af7c4;
+  --violet-glow: rgba(47, 224, 157, 0.25);
+  --violet-dark: #0f3627;
+}

@@ -1,0 +1,310 @@
+{
+  "tasks": [
+    {
+      "title": "Morning Workout & Mobility",
+      "description": "Completed from Weekly Habits schedule on 2026-10-16. Duration: 35 mins.",
+      "dueDate": "2026-10-16",
+      "dueTime": "08:57 PM",
+      "timeSlot": "morning",
+      "priority": "high",
+      "category": "Habit",
+      "completed": true,
+      "completedAt": "2026-10-16T17:57:53.762Z",
+      "estimatedMinutes": 35,
+      "actualMinutes": 35,
+      "id": "id-1792173473762-9zuu3",
+      "createdAt": "2026-10-16T17:57:53.762Z",
+      "updatedAt": "2026-10-16T17:57:53.762Z"
+    },
+    {
+      "id": "task-2",
+      "title": "Complete System Architecture Documentation",
+      "description": "Detail data models, API endpoints, and component interaction hierarchy.",
+      "dueDate": "2026-10-16",
+      "dueTime": "14:30",
+      "timeSlot": "afternoon",
+      "priority": "urgent",
+      "status": "in_progress",
+      "category": "Engineering",
+      "projectId": "proj-1",
+      "estimatedMinutes": 60,
+      "actualMinutes": 40,
+      "completed": false,
+      "createdAt": "2026-10-16T03:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "task-1",
+      "title": "Review Q4 Strategic Roadmap & Task Schedule",
+      "description": "Align upcoming product milestones and prioritize high-impact deliverables.",
+      "dueDate": "2026-10-16",
+      "dueTime": "10:00",
+      "timeSlot": "morning",
+      "priority": "high",
+      "status": "pending",
+      "category": "Deep Work",
+      "projectId": "proj-1",
+      "estimatedMinutes": 45,
+      "actualMinutes": 30,
+      "completed": false,
+      "createdAt": "2026-10-15T15:20:39.515Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "task-3",
+      "title": "Team Sync on Sprint Deliverables",
+      "description": "Quick check-in on project blockers and weekly habit progress.",
+      "dueDate": "2026-10-16",
+      "dueTime": "16:00",
+      "timeSlot": "afternoon",
+      "priority": "medium",
+      "status": "pending",
+      "category": "Meeting",
+      "projectId": "proj-2",
+      "estimatedMinutes": 30,
+      "actualMinutes": 0,
+      "completed": false,
+      "createdAt": "2026-10-16T09:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "task-5",
+      "title": "Refactor UI State Management Store",
+      "description": "Extract repeated components into reusable custom elements and optimize reactivity.",
+      "dueDate": "2026-10-17",
+      "dueTime": "11:00",
+      "timeSlot": "morning",
+      "priority": "high",
+      "status": "pending",
+      "category": "Engineering",
+      "projectId": "proj-1",
+      "estimatedMinutes": 90,
+      "actualMinutes": 0,
+      "completed": false,
+      "createdAt": "2026-10-16T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "task-6",
+      "title": "Prepare Client Presentation Deck",
+      "description": "Summarize user feedback and key value propositions for enterprise pitch.",
+      "dueDate": "2026-10-18",
+      "dueTime": "15:00",
+      "timeSlot": "afternoon",
+      "priority": "medium",
+      "status": "pending",
+      "category": "Deep Work",
+      "projectId": "proj-2",
+      "estimatedMinutes": 60,
+      "actualMinutes": 0,
+      "completed": false,
+      "createdAt": "2026-10-16T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "task-4",
+      "title": "Gym Workout & 5km Cardio Run",
+      "description": "Upper body hypertrophy training followed by zone-2 cardio session.",
+      "dueDate": "2026-10-16",
+      "dueTime": "18:30",
+      "timeSlot": "evening",
+      "priority": "high",
+      "status": "completed",
+      "category": "Health",
+      "projectId": "proj-3",
+      "estimatedMinutes": 75,
+      "actualMinutes": 75,
+      "completed": true,
+      "completedAt": "2026-10-16T15:20:39.517Z",
+      "createdAt": "2026-10-15T19:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-1",
+      "name": "Second Brain Command Center",
+      "description": "Next-generation personal operating system for task scheduling, habits, and knowledge capture.",
+      "dueDate": "2026-10-30",
+      "status": "In Progress",
+      "progress": 65,
+      "color": "#9b7bff",
+      "createdAt": "2026-10-09T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "proj-2",
+      "name": "Q4 Product Roadmap Delivery",
+      "description": "Shipping core features, client onboarding materials, and performance optimizations.",
+      "dueDate": "2026-11-15",
+      "status": "In Progress",
+      "progress": 40,
+      "color": "#74d6a0",
+      "createdAt": "2026-10-02T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "proj-3",
+      "name": "Peak Physical Conditioning",
+      "description": "Daily discipline tracker, strength routines, and nutrition scheduling.",
+      "dueDate": "2026-12-15",
+      "status": "In Progress",
+      "progress": 80,
+      "color": "#ff9858",
+      "createdAt": "2026-09-16T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    }
+  ],
+  "weeklyGoals": [
+    {
+      "id": "goal-1",
+      "name": "Morning Workout & Mobility",
+      "target": 5,
+      "days": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        true
+      ],
+      "weekKey": "2026-10-10",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "goal-2",
+      "name": "Deep Work Focus Sessions (2hr+)",
+      "target": 5,
+      "days": [
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "weekKey": "2026-10-10",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "goal-3",
+      "name": "Read 20 Pages Non-fiction",
+      "target": 6,
+      "days": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false
+      ],
+      "weekKey": "2026-10-10",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "goal-4",
+      "name": "Review Daily Intentions & Retrospective",
+      "target": 7,
+      "days": [
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "weekKey": "2026-10-10",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note-1",
+      "title": "Scheduling Strategy: Time Blocking & Energy Cycles",
+      "content": "Cluster demanding creative & technical tasks during morning peak focus (8:30am - 12:00pm). Leave meetings, administrative check-ins, and gym for afternoon/evening.",
+      "tags": [
+        "productivity",
+        "scheduling",
+        "strategy"
+      ],
+      "pinned": true,
+      "createdAt": "2026-10-14T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "note-2",
+      "title": "Second Brain Principles: PARA Framework",
+      "content": "Projects (active goals with deadlines), Areas (standards to maintain), Resources (topics of ongoing interest), Archives (inactive completed items).",
+      "tags": [
+        "organization",
+        "second-brain"
+      ],
+      "pinned": true,
+      "createdAt": "2026-10-13T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "note-3",
+      "title": "Weekly Sprint Retrospective Ideas",
+      "content": "Track velocity against estimated minutes vs actual minutes to fine-tune scheduling accuracy.",
+      "tags": [
+        "reflection",
+        "habits"
+      ],
+      "pinned": false,
+      "createdAt": "2026-10-16T15:20:39.517Z",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    }
+  ],
+  "timeSessions": [
+    {
+      "activityName": "Morning Workout & Mobility",
+      "taskId": "id-1792173473762-9zuu3",
+      "durationMinutes": 35,
+      "startTime": "2026-10-16T17:22:53.763Z",
+      "endTime": "2026-10-16T17:57:53.763Z",
+      "notes": "Recorded via stopwatch in Today's Focus",
+      "id": "id-1792173473763-s4vjv",
+      "createdAt": "2026-10-16T17:57:53.763Z",
+      "updatedAt": "2026-10-16T17:57:53.763Z"
+    },
+    {
+      "id": "time-1",
+      "activityName": "Architecture Planning",
+      "taskId": "task-1",
+      "durationMinutes": 45,
+      "startTime": "2026-10-16T11:20:39.517Z",
+      "endTime": "2026-10-16T12:05:39.517Z",
+      "notes": "Finalized database schema and API structure",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    },
+    {
+      "id": "time-2",
+      "activityName": "Deep Work Coding",
+      "taskId": "task-2",
+      "durationMinutes": 60,
+      "startTime": "2026-10-16T13:20:39.517Z",
+      "endTime": "2026-10-16T14:20:39.517Z",
+      "notes": "Implemented controller logic and input validation",
+      "createdAt": "2026-10-16T15:20:39.517Z"
+    }
+  ],
+  "intentions": {
+    "2026-10-16": {
+      "text": "Architect and execute the ultimate task scheduling system with clean components and robust backend persistence.",
+      "updatedAt": "2026-10-16T15:20:39.517Z"
+    }
+  },
+  "settings": {
+    "theme": "dark-purple",
+    "dailyGoalCount": 5,
+    "autoBackup": true,
+    "pomodoroWorkMinutes": 25,
+    "pomodoroBreakMinutes": 5,
+    "workspaceName": "Personal Command Center"
+  }
+}
