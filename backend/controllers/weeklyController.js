@@ -69,7 +69,7 @@ export const getWeeklyGoals = (req, res) => {
 
 export const createWeeklyGoal = (req, res) => {
   try {
-    const { name, target = 5 } = req.body;
+    const { name, target = 5, scheduledDays = [0, 1, 2, 3, 4, 5, 6] } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Goal name is required' });
     }
@@ -79,6 +79,7 @@ export const createWeeklyGoal = (req, res) => {
       name: name.trim(),
       target: targetNum,
       days: [false, false, false, false, false, false, false],
+      scheduledDays: Array.isArray(scheduledDays) && scheduledDays.length > 0 ? scheduledDays : [0, 1, 2, 3, 4, 5, 6],
       weekKey: getSaturdayWeekKey()
     });
 
@@ -112,6 +113,112 @@ export const toggleWeeklyGoalDay = (req, res) => {
     res.json({ success: true, data: goal });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const toggleHabitToday = (req, res) => {
+  try {
+    const goal = db.getById('weeklyGoals', req.params.id);
+    if (!goal) return res.status(404).json({ success: false, message: 'Habit not found' });
+
+    const date = new Date();
+    const todayIndex = (date.getDay() + 1) % 7;
+    const todayDate = date.toISOString().split('T')[0];
+
+    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+    const nextState = req.body.status !== undefined ? Boolean(req.body.status) : !goal.days[todayIndex];
+    goal.days[todayIndex] = nextState;
+    db.save();
+
+    const tasks = db.getAll('tasks');
+    let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
+
+    if (nextState) {
+      if (task) {
+        db.update('tasks', task.id, { completed: true, completedAt: new Date().toISOString() });
+      } else {
+        task = db.create('tasks', {
+          title: goal.name,
+          description: `Checked from Today's Focus schedule.`,
+          dueDate: todayDate,
+          dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timeSlot: 'morning',
+          priority: 'medium',
+          category: 'Habit',
+          completed: true,
+          completedAt: new Date().toISOString(),
+          actualMinutes: 0
+        });
+      }
+    } else if (task) {
+      db.update('tasks', task.id, { completed: false, completedAt: null });
+    }
+
+    res.json({ success: true, isCompletedToday: nextState, goal, todayIndex });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const completeHabitToday = (req, res) => {
+  try {
+    const goal = db.getById('weeklyGoals', req.params.id);
+    if (!goal) return res.status(404).json({ success: false, message: 'Habit not found' });
+
+    const date = new Date();
+    const todayIndex = (date.getDay() + 1) % 7;
+    const todayDate = date.toISOString().split('T')[0];
+    const { durationMinutes = 0, elapsedSeconds = 0, notes = '' } = req.body;
+    const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
+
+    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+    goal.days[todayIndex] = true;
+    db.save();
+
+    const tasks = db.getAll('tasks');
+    let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
+
+    if (task) {
+      db.update('tasks', task.id, {
+        completed: true,
+        completedAt: new Date().toISOString(),
+        actualMinutes: (Number(task.actualMinutes) || 0) + actualMins
+      });
+      task = db.getById('tasks', task.id);
+    } else {
+      task = db.create('tasks', {
+        title: goal.name,
+        description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${actualMins} mins.`,
+        dueDate: todayDate,
+        dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timeSlot: 'morning',
+        priority: 'high',
+        category: 'Habit',
+        completed: true,
+        completedAt: new Date().toISOString(),
+        estimatedMinutes: actualMins,
+        actualMinutes: actualMins
+      });
+    }
+
+    const session = db.create('timeSessions', {
+      activityName: goal.name,
+      taskId: task.id,
+      durationMinutes: actualMins,
+      startTime: new Date(Date.now() - actualMins * 60000).toISOString(),
+      endTime: new Date().toISOString(),
+      notes: notes || `Recorded via stopwatch in Today's Focus`
+    });
+
+    res.json({
+      success: true,
+      message: `Habit "${goal.name}" completed for today! Logged ${actualMins}m to Tasks.`,
+      goal,
+      task,
+      session
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
