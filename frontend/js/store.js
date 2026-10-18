@@ -172,6 +172,32 @@ class Store {
 
   static get SW_KEY() { return 'secondBrain_stopwatch_state'; }
 
+  /** Get total seconds already logged today for an item (habit or task) */
+  getTodayLoggedSeconds(itemId, title) {
+    const today = new Date().toISOString().split('T')[0];
+    const titleLower = (title || '').toLowerCase().trim();
+
+    // Check matching tasks for today
+    const tasks = this.state.tasks || [];
+    const matchingTask = tasks.find(t => 
+      (t.id === itemId || (t.title && t.title.toLowerCase().trim() === titleLower)) &&
+      t.dueDate === today
+    );
+    let mins = matchingTask ? (Number(matchingTask.actualMinutes) || 0) : 0;
+
+    // Check time sessions for today
+    const sessions = this.state.timeSessions || [];
+    const todaySessions = sessions.filter(s => {
+      const sName = (s.activityName || s.activity_name || '').toLowerCase().trim();
+      const sDate = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+      return sName === titleLower && sDate === today;
+    });
+    const sessionMins = todaySessions.reduce((acc, s) => acc + (Number(s.durationMinutes || s.duration_minutes) || 0), 0);
+
+    mins = Math.max(mins, sessionMins);
+    return mins * 60;
+  }
+
   /** Persist current stopwatch state so it survives page reload/lock */
   _saveStopwatchToStorage() {
     const sw = this.state.stopwatch;
@@ -179,13 +205,15 @@ class Store {
       localStorage.removeItem(Store.SW_KEY);
       return;
     }
+    const todayStr = new Date().toISOString().split('T')[0];
     localStorage.setItem(Store.SW_KEY, JSON.stringify({
       isRunning: true,
       isPaused: sw.isPaused,
-      // seconds already accumulated before the current running segment
+      elapsedSeconds: sw.elapsedSeconds,
       elapsedAtStart: sw._elapsedAtStart ?? 0,
-      // wall-clock ms when the current segment started (null when paused)
       startTimestamp: sw._startTimestamp ?? null,
+      initialLoggedSeconds: sw._initialLoggedSeconds ?? 0,
+      sessionDate: sw._sessionDate || todayStr,
       activeItemId: sw.activeItemId,
       activeItemTitle: sw.activeItemTitle,
       activeItemType: sw.activeItemType
@@ -200,8 +228,15 @@ class Store {
       const saved = JSON.parse(raw);
       if (!saved.isRunning) return;
 
+      const todayStr = new Date().toISOString().split('T')[0];
+      // If stored session was from a previous day, clean it up
+      if (saved.sessionDate && saved.sessionDate !== todayStr) {
+        localStorage.removeItem(Store.SW_KEY);
+        return;
+      }
+
       // Recalculate total elapsed (adds time that passed while page was closed)
-      let elapsedSeconds = saved.elapsedAtStart || 0;
+      let elapsedSeconds = saved.elapsedAtStart || saved.elapsedSeconds || 0;
       if (!saved.isPaused && saved.startTimestamp) {
         elapsedSeconds += Math.floor((Date.now() - saved.startTimestamp) / 1000);
       }
@@ -219,8 +254,10 @@ class Store {
         isRunning: true,
         isPaused: saved.isPaused || false,
         elapsedSeconds,
+        _initialLoggedSeconds: saved.initialLoggedSeconds || 0,
         _elapsedAtStart: saved.isPaused ? elapsedSeconds : (saved.elapsedAtStart || 0),
         _startTimestamp: saved.isPaused ? null : saved.startTimestamp,
+        _sessionDate: saved.sessionDate || todayStr,
         activeItemId: saved.activeItemId,
         activeItemTitle: saved.activeItemTitle,
         activeItemType: saved.activeItemType || 'habit',
@@ -240,6 +277,9 @@ class Store {
       clearInterval(this.state.stopwatch.intervalId);
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    // If starting on the same item on the same day, start from already-logged seconds!
+    const alreadyLoggedSeconds = this.getTodayLoggedSeconds(itemId, title);
     const startTimestamp = Date.now();
 
     const intervalId = setInterval(() => {
@@ -253,9 +293,11 @@ class Store {
     this.state.stopwatch = {
       isRunning: true,
       isPaused: false,
-      elapsedSeconds: 0,
-      _elapsedAtStart: 0,
+      elapsedSeconds: alreadyLoggedSeconds,
+      _initialLoggedSeconds: alreadyLoggedSeconds,
+      _elapsedAtStart: alreadyLoggedSeconds,
       _startTimestamp: startTimestamp,
+      _sessionDate: todayStr,
       activeItemId: itemId,
       activeItemTitle: title,
       activeItemType: type,
@@ -296,6 +338,7 @@ class Store {
       clearInterval(this.state.stopwatch.intervalId);
     }
     const finalSeconds = this.state.stopwatch.elapsedSeconds;
+    const initialSeconds = this.state.stopwatch._initialLoggedSeconds || 0;
     const finalItemId = this.state.stopwatch.activeItemId;
     const finalTitle = this.state.stopwatch.activeItemTitle;
     const finalType = this.state.stopwatch.activeItemType;
@@ -304,8 +347,10 @@ class Store {
       isRunning: false,
       isPaused: false,
       elapsedSeconds: 0,
+      _initialLoggedSeconds: 0,
       _elapsedAtStart: 0,
       _startTimestamp: null,
+      _sessionDate: null,
       activeItemId: null,
       activeItemTitle: '',
       activeItemType: 'habit',
@@ -314,9 +359,14 @@ class Store {
     localStorage.removeItem(Store.SW_KEY);
     this.notify('stopwatch');
 
+    const totalMinutes = Math.max(1, Math.round(finalSeconds / 60));
+    const addedMinutes = Math.max(1, Math.round((finalSeconds - initialSeconds) / 60));
+
     return {
       elapsedSeconds: finalSeconds,
-      elapsedMinutes: Math.max(1, Math.round(finalSeconds / 60)),
+      elapsedMinutes: totalMinutes,
+      sessionMinutes: addedMinutes,
+      initialMinutes: Math.round(initialSeconds / 60),
       itemId: finalItemId,
       title: finalTitle,
       type: finalType

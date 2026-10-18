@@ -691,6 +691,8 @@ class ApiClient {
     const todayIndex = getTodayDayIndex();
     const todayDate  = getTodayString(0);
     const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
+    const finalTotalMins = totalMinutes || actualMins;
+    const addedSessionMins = sessionMinutes || actualMins;
 
     // ── 2. Mark habit day as done ────────────────────────────────
     if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
@@ -705,12 +707,12 @@ class ApiClient {
     if (task) {
       task.completed    = true;
       task.completedAt  = new Date().toISOString();
-      task.actualMinutes = (Number(task.actualMinutes) || 0) + actualMins;
+      task.actualMinutes = Math.max(Number(task.actualMinutes) || 0, finalTotalMins);
     } else {
       task = {
         id: `local-task-${Date.now()}`,
         title: goal.name,
-        description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${actualMins} mins.`,
+        description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${finalTotalMins} mins.`,
         dueDate: todayDate,
         dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timeSlot: 'morning',
@@ -718,8 +720,8 @@ class ApiClient {
         category: 'Habit',
         completed: true,
         completedAt: new Date().toISOString(),
-        estimatedMinutes: actualMins,
-        actualMinutes: actualMins,
+        estimatedMinutes: finalTotalMins,
+        actualMinutes: finalTotalMins,
         createdAt: new Date().toISOString()
       };
       tasks.unshift(task);
@@ -733,8 +735,8 @@ class ApiClient {
       id: `timer-${Date.now()}`,
       activityName: goal.name,
       taskId: task.id,
-      durationMinutes: actualMins,
-      startTime: new Date(Date.now() - actualMins * 60000).toISOString(),
+      durationMinutes: addedSessionMins,
+      startTime: new Date(Date.now() - addedSessionMins * 60000).toISOString(),
       endTime: new Date().toISOString(),
       notes: notes || `Recorded via stopwatch in Today's Focus`,
       createdAt: new Date().toISOString()
