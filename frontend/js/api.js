@@ -64,13 +64,20 @@ function seedUserStarterData(userId, force = false) {
   localStorage.setItem(initKey, 'true');
 }
 
-// Helper to sync habit completion with user's today tasks
-function syncHabitWithUserTasks(habitName, isCompleted) {
+function getDateForWeekDayIndex(dayIndex) {
+  const d = new Date();
+  const todayIdx = (d.getDay() + 1) % 7; // 0 = Sat ... 6 = Fri
+  d.setDate(d.getDate() - (todayIdx - Number(dayIndex)));
+  return d.toISOString().split('T')[0];
+}
+
+// Helper to sync habit completion with user's tasks
+function syncHabitWithUserTasks(habitName, isCompleted, targetDate) {
   if (typeof localStorage === 'undefined') return;
   const key = getUserKey('tasks');
-  const todayDate = getTodayString(0);
+  const dDate = targetDate || getTodayString(0);
   const tasks = JSON.parse(localStorage.getItem(key) || '[]');
-  let task = tasks.find(t => t.title && t.title.toLowerCase() === habitName.toLowerCase() && t.dueDate === todayDate);
+  let task = tasks.find(t => t.title && t.title.toLowerCase() === habitName.toLowerCase() && t.dueDate === dDate);
 
   if (isCompleted) {
     if (task) {
@@ -78,10 +85,10 @@ function syncHabitWithUserTasks(habitName, isCompleted) {
       task.completedAt = new Date().toISOString();
     } else {
       task = {
-        id: `local-task-${Date.now()}`,
+        id: `local-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         title: habitName,
-        description: `Checked from Today's Focus schedule.`,
-        dueDate: todayDate,
+        description: `Checked from Habits schedule on ${dDate}.`,
+        dueDate: dDate,
         dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timeSlot: 'morning',
         priority: 'medium',
@@ -629,10 +636,8 @@ class ApiClient {
     goal.days[dayIndex] = status !== undefined ? Boolean(status) : !goal.days[dayIndex];
     localStorage.setItem(key, JSON.stringify(raw));
 
-    const todayIdx = getTodayDayIndex();
-    if (Number(dayIndex) === todayIdx) {
-      syncHabitWithUserTasks(goal.name, goal.days[dayIndex]);
-    }
+    const targetDate = getDateForWeekDayIndex(Number(dayIndex));
+    syncHabitWithUserTasks(goal.name, goal.days[dayIndex], targetDate);
 
     const supabase = getSupabase();
     const user = auth.getCurrentUser();

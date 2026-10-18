@@ -11,6 +11,7 @@ import { renderInsightsView } from './views/insightsView.js';
 import { renderSettingsView } from './views/settingsView.js';
 import { AuthModal } from './components/AuthModal.js';
 import { auth } from './auth.js';
+import { t, getLang, initLang } from './i18n.js';
 
 const PAGE_META = {
   Dashboard: {
@@ -67,8 +68,9 @@ class App {
   }
 
   init() {
+    initLang();
     this.applyTheme();
-    this.updateCurrentDate();
+    this.applyLanguage();
     this.bindNavigation();
     this.bindGlobalActions();
     this.bindMobileMenu();
@@ -78,6 +80,12 @@ class App {
       if (e.detail?.page) {
         this.navigateTo(e.detail.page);
       }
+    });
+
+    // Listen for language switch events
+    window.addEventListener('lang-changed', () => {
+      this.applyLanguage();
+      this.navigateTo(this.currentPage);
     });
 
     // Wire up dedicated Gatekeeper Onboarding & Login Screen
@@ -310,10 +318,72 @@ class App {
     }
   }
 
+  applyLanguage() {
+    const isAr = getLang() === 'ar';
+
+    const navItems = {
+      Dashboard: { icon: '⌂', label: t('nav.dashboard') },
+      Today:     { icon: '◷', label: t('nav.today') },
+      Weekly:    { icon: '▦', label: t('nav.weekly') },
+      Tasks:     { icon: '☑', label: t('nav.tasks') },
+      Notes:     { icon: '▤', label: t('nav.notes') },
+      Insights:  { icon: '⌁', label: t('nav.insights') },
+      Settings:  { icon: '⚙', label: t('nav.settings') }
+    };
+
+    // Sidebar navigation labels
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      const p = btn.dataset.page;
+      if (navItems[p]) {
+        btn.innerHTML = `<span class="nav-icon">${navItems[p].icon}</span> ${navItems[p].label}`;
+      }
+    });
+
+    // Mobile bottom navigation labels
+    document.querySelectorAll('.mob-nav-btn').forEach(btn => {
+      const p = btn.dataset.page;
+      const labelEl = btn.querySelector('.mob-nav-label');
+      if (labelEl && navItems[p]) {
+        labelEl.textContent = navItems[p].label;
+      }
+    });
+
+    // Sidebar command center label & brand subtitle
+    const navLabel = document.querySelector('.nav-label');
+    if (navLabel) navLabel.textContent = isAr ? 'مركز التحكم' : 'COMMAND CENTER';
+
+    const brandSub = document.querySelector('.brand-subtitle');
+    if (brandSub) brandSub.textContent = isAr ? 'فكر بوضوح. أنجز أكثر' : 'Think Clear. Do More';
+
+    // Topbar new task button
+    const topbarBtn = document.getElementById('topbarNewTaskBtn');
+    if (topbarBtn) topbarBtn.textContent = isAr ? '+ جدولة مهمة' : '+ Schedule Task';
+
+    this.updateCurrentDate();
+    this.updateTopbarMeta(this.currentPage || 'Dashboard');
+  }
+
+  updateTopbarMeta(page) {
+    const meta = PAGE_META[page] || PAGE_META.Dashboard;
+    const titleEl = document.getElementById('pageTitle');
+    const subEl = document.getElementById('pageSubtitle');
+    const breadcrumbEl = document.getElementById('breadcrumbPage');
+
+    const key = page ? page.toLowerCase() : 'dashboard';
+    const translatedTitle = t(`${key}.title`);
+    const translatedSub = t(`${key}.subtitle`);
+    const translatedNav = t(`nav.${key}`);
+
+    if (titleEl) titleEl.textContent = (translatedTitle && translatedTitle !== `${key}.title`) ? translatedTitle : meta.title;
+    if (subEl) subEl.textContent = (translatedSub && translatedSub !== `${key}.subtitle`) ? translatedSub : meta.subtitle;
+    if (breadcrumbEl) breadcrumbEl.textContent = (translatedNav && translatedNav !== `nav.${key}`) ? translatedNav : meta.breadcrumb;
+  }
+
   updateCurrentDate() {
     const dateEl = document.getElementById('currentDate');
     if (dateEl) {
-      dateEl.textContent = new Date().toLocaleDateString('en-US', {
+      const isAr = getLang() === 'ar';
+      dateEl.textContent = new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -385,14 +455,7 @@ class App {
     store.state.currentPage = page;
 
     // Update Topbar metadata
-    const meta = PAGE_META[page] || PAGE_META.Dashboard;
-    const titleEl = document.getElementById('pageTitle');
-    const subEl = document.getElementById('pageSubtitle');
-    const breadcrumbEl = document.getElementById('breadcrumbPage');
-
-    if (titleEl) titleEl.textContent = meta.title;
-    if (subEl) subEl.textContent = meta.subtitle;
-    if (breadcrumbEl) breadcrumbEl.textContent = meta.breadcrumb;
+    this.updateTopbarMeta(page);
 
     // Update active nav button (sidebar)
     document.querySelectorAll('.nav-item').forEach(button => {

@@ -6,17 +6,19 @@ import { resetSupabase } from '../supabaseClient.js';
 import { Toast } from '../components/Toast.js';
 import { Modal } from '../components/Modal.js';
 import { AuthModal } from '../components/AuthModal.js';
+import { t, getLang, setLang } from '../i18n.js';
 
 export function renderSettingsView(container) {
   const currentTheme = document.body.getAttribute('data-theme') || 'dark-purple';
   const currentUser = store.state.user;
   const isCloud = config.isSupabaseConfigured;
+  const currentLang = getLang();
 
   container.innerHTML = `
     <div class="section-heading">
       <div>
-        <h2>Workspace Settings & Multi-User Cloud</h2>
-        <p>Manage your account, connect Supabase cloud for cross-device sync, and configure themes.</p>
+        <h2>${t('settings.title')}</h2>
+        <p>${t('settings.subtitle')}</p>
       </div>
     </div>
 
@@ -48,11 +50,42 @@ export function renderSettingsView(container) {
 
         <div style="display: flex; gap: 10px; align-items: center;">
           ${currentUser ? `
-            <button class="btn btn-secondary btn-small" id="switchAccountBtn">Switch Account</button>
-            <button class="btn btn-danger btn-small" id="signOutBtn">Sign Out</button>
+            <button class="btn btn-secondary btn-small" id="switchAccountBtn">${t('settings.switch_account') || 'Switch Account'}</button>
+            <button class="btn btn-danger btn-small" id="signOutBtn">${t('settings.sign_out') || 'Sign Out'}</button>
           ` : `
             <button class="btn btn-primary btn-small" id="signInBtn">⚡ Sign In / Create Account</button>
           `}
+        </div>
+      </div>
+    </div>
+
+    <!-- LANGUAGE CONFIGURATION (ARABIC / ENGLISH) -->
+    <div class="panel">
+      <div class="panel-heading">
+        <div>
+          <h3>${t('settings.language_title')}</h3>
+          <p>${t('settings.language_desc')}</p>
+        </div>
+        <span class="stat-icon">🌐</span>
+      </div>
+
+      <div class="lang-switcher-grid">
+        <div class="lang-option-card ${currentLang === 'en' ? 'active' : ''}" data-lang="en">
+          <span class="lang-flag">🇬🇧</span>
+          <div class="lang-meta">
+            <div class="lang-name">${t('settings.lang_en')}</div>
+            <div class="lang-desc">English interface with Left-to-Right (LTR) layout</div>
+          </div>
+          <div class="lang-check">✓</div>
+        </div>
+
+        <div class="lang-option-card ${currentLang === 'ar' ? 'active' : ''}" data-lang="ar">
+          <span class="lang-flag">🇪🇬</span>
+          <div class="lang-meta">
+            <div class="lang-name">${t('settings.lang_ar')}</div>
+            <div class="lang-desc">واجهة عربية كاملة مع دعم الاتجاه من اليمين إلى اليسار (RTL)</div>
+          </div>
+          <div class="lang-check">✓</div>
         </div>
       </div>
     </div>
@@ -98,8 +131,8 @@ export function renderSettingsView(container) {
     <div class="panel">
       <div class="panel-heading">
         <div>
-          <h3>Visual Design & Theme</h3>
-          <p>Choose your workspace aesthetic tone.</p>
+          <h3>${t('settings.theme_title')}</h3>
+          <p>${t('settings.theme_desc')}</p>
         </div>
         <span class="stat-icon">🎨</span>
       </div>
@@ -158,6 +191,20 @@ export function renderSettingsView(container) {
       </div>
     </div>
   `;
+
+  // Language Switcher Handlers
+  container.querySelectorAll('.lang-option-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const selectedLang = card.dataset.lang;
+      if (selectedLang === getLang()) return;
+      setLang(selectedLang);
+      Toast.success(selectedLang === 'ar' 
+        ? 'تم تحويل لوحة التحكم بالكامل إلى اللغة العربية بنجاح! 🇪🇬' 
+        : 'Dashboard language switched to English! 🇬🇧'
+      );
+      renderSettingsView(container);
+    });
+  });
 
   // Auth Button Handlers
   container.querySelector('#switchAccountBtn')?.addEventListener('click', () => {
