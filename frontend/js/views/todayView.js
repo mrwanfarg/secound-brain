@@ -6,7 +6,8 @@ import { Modal } from '../components/Modal.js';
 import { createEmptyState } from '../components/EmptyState.js';
 import { t, getLang } from '../i18n.js';
 
-const DAY_NAMES = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_NAMES_EN = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_NAMES_AR = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 
 function getTodayDayIndex() {
   const date = new Date();
@@ -26,17 +27,18 @@ function formatStopwatchTime(totalSeconds) {
 export function renderTodayView(container) {
   const todayDate = new Date().toISOString().split('T')[0];
   const todayIdx = getTodayDayIndex();
-  const dayName = DAY_NAMES[todayIdx];
+  const isAr = getLang() === 'ar';
+  const dayName = isAr ? DAY_NAMES_AR[todayIdx] : DAY_NAMES_EN[todayIdx];
 
   container.innerHTML = `
     <div class="section-heading">
       <div>
-        <h2>Today's Focus & Daily Command</h2>
-        <p>Today is <strong style="color: var(--cyan);">${dayName} (${todayDate})</strong>. Execute your scheduled habits, track real time, and log completed work.</p>
+        <h2>${isAr ? 'تركيز اليوم والأوامر اليومية' : "Today's Focus & Daily Command"}</h2>
+        <p>${isAr ? `اليوم هو <strong style="color: var(--cyan);">${dayName} (${todayDate})</strong>. نفّذ عاداتك المجدولة، تتبع الوقت، وسجّل أعمالك المنجزة.` : `Today is <strong style="color: var(--cyan);">${dayName} (${todayDate})</strong>. Execute your scheduled habits, track real time, and log completed work.`}</p>
       </div>
       <div style="display: flex; gap: 10px; align-items: center;">
-        <button class="btn btn-secondary btn-small" id="todayViewWeeklyBtn">View Weekly Matrix →</button>
-        <button class="btn btn-primary" id="todayAddTaskBtn">+ Schedule Task for Today</button>
+        <button class="btn btn-secondary btn-small" id="todayViewWeeklyBtn">${isAr ? 'عرض المصفوفة الأسبوعية →' : 'View Weekly Matrix →'}</button>
+        <button class="btn btn-primary" id="todayAddTaskBtn">${isAr ? '+ جدولة مهمة لليوم' : '+ Schedule Task for Today'}</button>
       </div>
     </div>
 
@@ -46,8 +48,8 @@ export function renderTodayView(container) {
         <div style="display: flex; align-items: center; gap: 10px;">
           <span class="pulse-indicator" id="stopwatchPulseDot"></span>
           <div>
-            <div class="eyebrow" style="margin: 0;">LIVE ACTIVITY TIME TRACKER</div>
-            <h3 id="stopwatchItemTitle" style="font-size: 16px; margin: 2px 0 0; color: var(--text);">No active session</h3>
+            <div class="eyebrow" style="margin: 0;">${isAr ? 'متتبع الوقت المباشر' : 'LIVE ACTIVITY TIME TRACKER'}</div>
+            <h3 id="stopwatchItemTitle" style="font-size: 16px; margin: 2px 0 0; color: var(--text);">${isAr ? 'لا توجد جلسة نشطة' : 'No active session'}</h3>
           </div>
         </div>
         <div class="stopwatch-digits" id="stopwatchClockDisplay">00:00</div>
@@ -57,17 +59,17 @@ export function renderTodayView(container) {
       <div id="stopwatchDoneBanner" style="display:none; align-items:center; gap:12px; margin-top:14px; padding:12px 16px; background:rgba(80,220,130,0.12); border:1px solid rgba(80,220,130,0.35); border-radius:12px;">
         <span style="font-size:24px; color:var(--green);">✓</span>
         <div>
-          <div style="font-weight:700; color:var(--green); font-size:14px;" id="stopwatchDoneTitle">Session complete!</div>
+          <div style="font-weight:700; color:var(--green); font-size:14px;" id="stopwatchDoneTitle">${isAr ? 'اكتملت الجلسة!' : 'Session complete!'}</div>
           <div style="font-size:12px; color:var(--muted);" id="stopwatchDoneDetail"></div>
         </div>
       </div>
 
       <div class="stopwatch-actions-bar" style="display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap;">
-        <button class="btn btn-primary" id="stopwatchMainToggleBtn">▶ Start Stopwatch</button>
-        <button class="btn btn-secondary" id="stopwatchPauseBtn" style="display: none;">⏸ Pause</button>
-        <button class="btn btn-success" id="stopwatchFinishBtn" style="display: none;">⏹ Finish & Log to Tasks</button>
-        <button class="btn btn-secondary btn-small" id="stopwatchResetBtn">↺ Reset</button>
-        <span style="font-size: 11px; color: var(--muted); margin-left: auto;" id="stopwatchStatusCaption">Ready to track your time</span>
+        <button class="btn btn-primary" id="stopwatchMainToggleBtn">${isAr ? '▶ ابدأ الساعة' : '▶ Start Stopwatch'}</button>
+        <button class="btn btn-secondary" id="stopwatchPauseBtn" style="display: none;">${isAr ? '⏸ إيقاف مؤقت' : '⏸ Pause'}</button>
+        <button class="btn btn-success" id="stopwatchFinishBtn" style="display: none;">${isAr ? '⏹ إنهاء وتسجيل في المهام' : '⏹ Finish & Log to Tasks'}</button>
+        <button class="btn btn-secondary btn-small" id="stopwatchResetBtn">${isAr ? '↺ إعادة ضبط' : '↺ Reset'}</button>
+        <span style="font-size: 11px; color: var(--muted); margin-left: auto;" id="stopwatchStatusCaption">${isAr ? 'اختر عادة أو مهمة أدناه لبدء التوقيت' : 'Choose any habit or task below to start timing'}</span>
       </div>
     </div>
 
@@ -79,9 +81,9 @@ export function renderTodayView(container) {
       <div class="panel-heading">
         <div>
           <h3 style="font-size: 15px; color: var(--violet-light);">
-            ⚡ Today's Scheduled Habits (${dayName})
+            ⚡ ${isAr ? `عادات اليوم المجدولة (${dayName})` : `Today's Scheduled Habits (${dayName})`}
           </h3>
-          <p>Habits scheduled for today from your Weekly Plan. Check off when done or use the stopwatch to log exact minutes into Tasks!</p>
+          <p>${isAr ? 'العادات المجدولة لليوم من خطتك الأسبوعية. علّم عليها عند الإنجاز أو شغّل الساعة لتسجيل الوقت في المهام!' : 'Habits scheduled for today from your Weekly Plan. Check off when done or use the stopwatch to log exact minutes into Tasks!'}</p>
         </div>
         <span class="stat-icon" style="background: rgba(155, 123, 255, 0.2);">▦</span>
       </div>
@@ -92,8 +94,8 @@ export function renderTodayView(container) {
     <!-- 2. TIME-SLOTTED TASKS GRID -->
     <div class="section-heading" style="margin-top: 28px;">
       <div>
-        <h2>Today's Task Schedule</h2>
-        <p>Grouped into morning, afternoon, and evening focus blocks.</p>
+        <h2>${isAr ? 'جدول مهام اليوم' : "Today's Task Schedule"}</h2>
+        <p>${isAr ? 'مجمعة في كتل العمل الصباحية والمسائية والليلية.' : 'Grouped into morning, afternoon, and evening focus blocks.'}</p>
       </div>
     </div>
 
@@ -101,7 +103,7 @@ export function renderTodayView(container) {
       <!-- MORNING -->
       <div class="timeline-block">
         <div class="timeline-header">
-          <div class="timeline-title">🌅 Morning Deep Work</div>
+          <div class="timeline-title">${isAr ? '🌅 عمل الصباح' : '🌅 Morning Deep Work'}</div>
           <div class="timeline-time">08:00 — 12:00</div>
         </div>
         <div class="task-list" id="slotMorningTasks"></div>
@@ -110,7 +112,7 @@ export function renderTodayView(container) {
       <!-- AFTERNOON -->
       <div class="timeline-block">
         <div class="timeline-header">
-          <div class="timeline-title">☀️ Afternoon Execution</div>
+          <div class="timeline-title">${isAr ? '☀️ تنفيذ الظهيرة' : '☀️ Afternoon Execution'}</div>
           <div class="timeline-time">12:00 — 17:00</div>
         </div>
         <div class="task-list" id="slotAfternoonTasks"></div>
@@ -119,7 +121,7 @@ export function renderTodayView(container) {
       <!-- EVENING -->
       <div class="timeline-block">
         <div class="timeline-header">
-          <div class="timeline-title">🌙 Evening Wrap-up</div>
+          <div class="timeline-title">${isAr ? '🌙 ختام المساء' : '🌙 Evening Wrap-up'}</div>
           <div class="timeline-time">17:00 — 21:00</div>
         </div>
         <div class="task-list" id="slotEveningTasks"></div>
@@ -150,24 +152,29 @@ export function renderTodayView(container) {
 
   function updateStopwatchUI() {
     const sw = store.state.stopwatch;
+    const _ar = getLang() === 'ar';
     clockEl.textContent = formatStopwatchTime(sw.elapsedSeconds);
 
     if (sw.isRunning) {
       pulseDot.className = sw.isPaused ? 'pulse-indicator paused' : 'pulse-indicator running';
-      titleEl.textContent = sw.activeItemTitle || 'Active Focus Session';
-      statusCaption.textContent = sw.isPaused ? 'Paused · Click Resume to continue' : '⏱ Recording time live...';
+      titleEl.textContent = sw.activeItemTitle || (_ar ? 'جلسة تركيز نشطة' : 'Active Focus Session');
+      statusCaption.textContent = sw.isPaused
+        ? (_ar ? 'متوقف مؤقتاً · اضغط استئناف للمتابعة' : 'Paused · Click Resume to continue')
+        : (_ar ? '⏱ تسجيل الوقت مباشرة...' : '⏱ Recording time live...');
 
       mainToggleBtn.style.display = 'none';
       pauseBtn.style.display = 'inline-flex';
-      pauseBtn.textContent = sw.isPaused ? '▶ Resume' : '⏸ Pause';
+      pauseBtn.textContent = sw.isPaused ? (_ar ? '▶ استئناف' : '▶ Resume') : (_ar ? '⏸ إيقاف مؤقت' : '⏸ Pause');
       finishBtn.style.display = 'inline-flex';
     } else {
       pulseDot.className = 'pulse-indicator';
-      titleEl.textContent = sw.activeItemTitle ? `Ready: ${sw.activeItemTitle}` : 'No active session';
-      statusCaption.textContent = 'Choose any habit or task below to start timing';
+      titleEl.textContent = sw.activeItemTitle
+        ? (_ar ? `جاهز: ${sw.activeItemTitle}` : `Ready: ${sw.activeItemTitle}`)
+        : (_ar ? 'لا توجد جلسة نشطة' : 'No active session');
+      statusCaption.textContent = _ar ? 'اختر عادة أو مهمة أدناه لبدء التوقيت' : 'Choose any habit or task below to start timing';
 
       mainToggleBtn.style.display = 'inline-flex';
-      mainToggleBtn.textContent = '▶ Start Stopwatch';
+      mainToggleBtn.textContent = _ar ? '▶ ابدأ الساعة' : '▶ Start Stopwatch';
       pauseBtn.style.display = 'none';
       finishBtn.style.display = 'none';
     }
@@ -175,9 +182,10 @@ export function renderTodayView(container) {
 
   /** Show the green ✓ done banner inside the stopwatch panel */
   function showDoneBanner(title, mins) {
+    const _ar = getLang() === 'ar';
     doneBanner.style.display = 'flex';
-    doneTitle.textContent = `✓ "${title}" done!`;
-    doneDetail.textContent = `Logged ${mins} minute${mins !== 1 ? 's' : ''} successfully`;
+    doneTitle.textContent = _ar ? `✓ "${title}" خلصت!` : `✓ "${title}" done!`;
+    doneDetail.textContent = _ar ? `تم تسجيل ${mins} دقيقة بنجاح` : `Logged ${mins} minute${mins !== 1 ? 's' : ''} successfully`;
     setTimeout(() => { doneBanner.style.display = 'none'; }, 6000);
   }
 
@@ -200,35 +208,38 @@ export function renderTodayView(container) {
 
   finishBtn.addEventListener('click', async () => {
     const result = store.stopStopwatch();
-    const mins = Math.max(1, result.elapsedMinutes);
+    const totalMins  = Math.max(1, result.elapsedMinutes);   // cumulative total today
+    const sessionMins = Math.max(1, result.sessionMinutes);  // only this session's delta
     const sessionTitle = result.title || 'Focus Session';
 
     // ── Immediate visual feedback ──
     updateStopwatchUI();
-    showDoneBanner(sessionTitle, mins);
+    showDoneBanner(sessionTitle, sessionMins);
 
     try {
       if (result.type === 'habit' && result.itemId) {
         await api.completeHabitToday(result.itemId, {
-          durationMinutes: mins,
+          durationMinutes: sessionMins,
           elapsedSeconds: result.elapsedSeconds,
+          totalMinutes: totalMins,
+          sessionMinutes: sessionMins,
           notes: `Tracked live via Stopwatch on ${todayDate}`
         });
       } else {
         await api.createTask({
           title: sessionTitle,
-          description: `Finished via Stopwatch. Tracked duration: ${mins} minutes.`,
+          description: `Finished via Stopwatch. Tracked duration: ${totalMins} minutes.`,
           dueDate: todayDate,
           priority: 'high',
           category: 'Deep Work',
           completed: true,
           completedAt: new Date().toISOString(),
-          actualMinutes: mins
+          actualMinutes: totalMins
         });
         await api.logTimeSession({
           activityName: sessionTitle,
-          durationMinutes: mins,
-          notes: 'Completed from Today\'s Focus stopwatch'
+          durationMinutes: sessionMins,
+          notes: "Completed from Today's Focus stopwatch"
         });
       }
       await store.refreshAll();
@@ -329,7 +340,7 @@ export function renderTodayView(container) {
 
       const habitBadge = document.createElement('span');
       habitBadge.className = 'task-badge badge-category';
-      habitBadge.textContent = 'Weekly Habit';
+      habitBadge.textContent = getLang() === 'ar' ? 'عادة أسبوعية' : 'Weekly Habit';
       titleLine.appendChild(habitBadge);
 
       const isAr = getLang() === 'ar';
@@ -353,9 +364,10 @@ export function renderTodayView(container) {
 
       const meta = document.createElement('div');
       meta.className = 'task-meta-row';
+      const _isAr = getLang() === 'ar';
       meta.innerHTML = `
-        <span>Week Progress: ${completedCount}/${target} days completed</span>
-        ${isCompletedToday ? '<span style="color: var(--green); font-weight: 700;">✓ Completed for today</span>' : '<span style="color: var(--amber);">Pending today</span>'}
+        <span>${_isAr ? `تقدم الأسبوع: ${completedCount}/${target} أيام مكتملة` : `Week Progress: ${completedCount}/${target} days completed`}</span>
+        ${isCompletedToday ? `<span style="color: var(--green); font-weight: 700;">✓ ${_isAr ? 'مكتملة اليوم' : 'Completed for today'}</span>` : `<span style="color: var(--amber);">${_isAr ? 'قيد الانتظار' : 'Pending today'}</span>`}
       `;
       details.appendChild(meta);
 
@@ -381,27 +393,32 @@ export function renderTodayView(container) {
 
         const finishHabitBtn = document.createElement('button');
         finishHabitBtn.className = 'btn btn-success btn-small';
-        finishHabitBtn.textContent = '⏹ Finish & Log';
+        finishHabitBtn.textContent = getLang() === 'ar' ? '⏹ إنهاء وتسجيل' : '⏹ Finish & Log';
         finishHabitBtn.addEventListener('click', async () => {
           const res = store.stopStopwatch();
-          const mins = Math.max(1, res.elapsedMinutes);
+          const totalMins   = Math.max(1, res.elapsedMinutes);   // cumulative today
+          const sessionMins = Math.max(1, res.sessionMinutes);   // this session only
+          const _isAr2 = getLang() === 'ar';
 
           // ── Immediate visual: replace action row with ✓ done badge ──
           actions.innerHTML = `
             <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
               background:rgba(80,220,130,0.15);border:1px solid rgba(80,220,130,0.4);
               border-radius:20px;font-size:12px;font-weight:700;color:var(--green);">
-              ✓ Done! (${mins}m logged)
+              ${_isAr2 ? `✓ خلصت! (${totalMins} دقيقة)` : `✓ Done! (${totalMins}m logged)`}
             </span>`;
           card.style.background = 'rgba(80,220,130,0.06)';
           card.style.borderColor = 'rgba(80,220,130,0.35)';
           updateStopwatchUI();
-          showDoneBanner(habit.name, mins);
+          showDoneBanner(habit.name, sessionMins);
 
           try {
             await api.completeHabitToday(habit.id, {
-              durationMinutes: mins,
-              elapsedSeconds: res.elapsedSeconds
+              durationMinutes: sessionMins,
+              elapsedSeconds: res.elapsedSeconds,
+              totalMinutes: totalMins,
+              sessionMinutes: sessionMins,
+              notes: `Tracked via stopwatch on ${todayDate}`
             });
             await store.refreshAll();
             renderTodayHabits();
@@ -415,8 +432,8 @@ export function renderTodayView(container) {
         // Not currently timing this habit
         const startBtn = document.createElement('button');
         startBtn.className = 'btn btn-secondary btn-small';
-        startBtn.innerHTML = '▶ Start Time';
-        startBtn.title = 'Start live stopwatch for this habit';
+        startBtn.innerHTML = getLang() === 'ar' ? '▶ ابدأ التوقيت' : '▶ Start Time';
+        startBtn.title = getLang() === 'ar' ? 'شغّل العداد لهذه العادة' : 'Start live stopwatch for this habit';
         startBtn.addEventListener('click', () => {
           store.startStopwatch(habit.id, habit.name, 'habit');
           Toast.info(`⏱ Started timing "${habit.name}"!`);
@@ -455,9 +472,10 @@ export function renderTodayView(container) {
       }
     };
 
-    renderList(morningEl, morningTasks, 'No morning tasks scheduled.');
-    renderList(afternoonEl, afternoonTasks, 'No afternoon tasks scheduled.');
-    renderList(eveningEl, eveningTasks, 'No evening tasks scheduled.');
+    const _noTaskAr = getLang() === 'ar';
+    renderList(morningEl, morningTasks, _noTaskAr ? 'لا توجد مهام صباحية مجدولة.' : 'No morning tasks scheduled.');
+    renderList(afternoonEl, afternoonTasks, _noTaskAr ? 'لا توجد مهام في الظهيرة مجدولة.' : 'No afternoon tasks scheduled.');
+    renderList(eveningEl, eveningTasks, _noTaskAr ? 'لا توجد مهام مسائية مجدولة.' : 'No evening tasks scheduled.');
   }
 
   // RENDER TODAY TOTAL TIME SUMMARY BANNER

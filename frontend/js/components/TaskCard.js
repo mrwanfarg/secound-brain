@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { Toast } from './Toast.js';
 import { Modal } from './Modal.js';
+import { getLang } from '../i18n.js';
 
 function getLocalDate() {
   const now = new Date();
@@ -26,17 +27,20 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
   checkbox.setAttribute('aria-label', `Mark task "${task.title}" as ${task.completed ? 'pending' : 'completed'}`);
 
   checkbox.addEventListener('change', async () => {
+    const _ar = getLang() === 'ar';
     try {
       const nextCompleted = checkbox.checked;
       row.classList.toggle('completed', nextCompleted);
       await api.toggleTask(task.id);
-      Toast.success(nextCompleted ? 'Task completed! ⚡' : 'Task reopened');
+      Toast.success(nextCompleted
+        ? (_ar ? 'تمت المهمة! ⚡' : 'Task completed! ⚡')
+        : (_ar ? 'تم إعادة فتح المهمة' : 'Task reopened'));
       await store.refreshAll();
       if (typeof onUpdate === 'function') onUpdate(task);
     } catch {
       checkbox.checked = !checkbox.checked;
       row.classList.toggle('completed', checkbox.checked);
-      Toast.error('Failed to update task');
+      Toast.error(getLang() === 'ar' ? 'تعذّر تحديث المهمة' : 'Failed to update task');
     }
   });
 
@@ -91,25 +95,33 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
   const metaRow = document.createElement('div');
   metaRow.className = 'task-meta-row';
 
+  const _ar = getLang() === 'ar';
   // Due Date
   const dueSpan = document.createElement('span');
   if (!task.dueDate) {
-    dueSpan.textContent = 'No due date';
+    dueSpan.textContent = _ar ? 'لا تاريخ استحقاق' : 'No due date';
   } else if (task.dueDate === today) {
-    dueSpan.textContent = `Due today ${task.dueTime ? `at ${task.dueTime}` : ''}`;
+    dueSpan.textContent = _ar
+      ? `مستحق اليوم ${task.dueTime ? `الساعة ${task.dueTime}` : ''}`.trim()
+      : `Due today ${task.dueTime ? `at ${task.dueTime}` : ''}`;
     dueSpan.style.color = 'var(--cyan)';
   } else if (task.dueDate < today && !task.completed) {
     dueSpan.className = 'task-badge badge-overdue';
-    dueSpan.textContent = `Overdue · ${task.dueDate}`;
+    dueSpan.textContent = _ar ? `متأخر · ${task.dueDate}` : `Overdue · ${task.dueDate}`;
   } else {
-    dueSpan.textContent = `Due ${task.dueDate} ${task.dueTime ? `(${task.dueTime})` : ''}`;
+    dueSpan.textContent = _ar
+      ? `يستحق ${task.dueDate} ${task.dueTime ? `(${task.dueTime})` : ''}`.trim()
+      : `Due ${task.dueDate} ${task.dueTime ? `(${task.dueTime})` : ''}`;
   }
   metaRow.appendChild(dueSpan);
 
   // Time Slot
   if (task.timeSlot) {
     const slotSpan = document.createElement('span');
-    slotSpan.textContent = `• Slot: ${task.timeSlot}`;
+    const slotLabels = getLang() === 'ar'
+      ? { morning: 'صباحي', afternoon: 'ظهيرة', evening: 'مساء' }
+      : { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+    slotSpan.textContent = `• ${getLang() === 'ar' ? 'فترة' : 'Slot'}: ${slotLabels[task.timeSlot] || task.timeSlot}`;
     metaRow.appendChild(slotSpan);
   }
 
@@ -119,27 +131,31 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
     actBadge.className = 'task-badge';
     const actual = task.actualMinutes || 0;
     const minGoal = task.minimumMinutes || 0;
+    const _ar2 = getLang() === 'ar';
 
     if (actual > 0 && minGoal > 0) {
       const met = actual >= minGoal;
       actBadge.style.background = met ? 'rgba(80,220,130,0.15)' : 'rgba(255,100,100,0.15)';
       actBadge.style.color = met ? 'var(--green)' : '#ff6464';
       actBadge.style.fontWeight = '700';
-      actBadge.textContent = `${met ? '✓' : '⚠'} ${actual}m / ${minGoal}m min`;
+      actBadge.textContent = _ar2
+        ? `${met ? '✓' : '⚠'} ${actual}د / ${minGoal}د حد أدنى`
+        : `${met ? '✓' : '⚠'} ${actual}m / ${minGoal}m min`;
     } else if (actual > 0) {
       actBadge.style.background = 'rgba(91, 224, 235, 0.16)';
       actBadge.style.color = 'var(--cyan)';
       actBadge.style.fontWeight = '700';
-      actBadge.textContent = `⏱ ${actual}m tracked`;
+      actBadge.textContent = _ar2 ? `⏱ ${actual} دق. مسجلة` : `⏱ ${actual}m tracked`;
     } else if (minGoal > 0) {
       actBadge.style.background = 'rgba(155,123,255,0.12)';
       actBadge.style.color = 'var(--violet-light)';
-      actBadge.textContent = `⏱ Min: ${minGoal}m`;
+      actBadge.textContent = _ar2 ? `⏱ حد أدنى: ${minGoal} د.` : `⏱ Min: ${minGoal}m`;
     }
     metaRow.appendChild(actBadge);
   } else if (task.estimatedMinutes) {
     const estSpan = document.createElement('span');
-    estSpan.textContent = `• ⏱ ${task.estimatedMinutes}m est`;
+    const _ar3 = getLang() === 'ar';
+    estSpan.textContent = _ar3 ? `• ⏱ ${task.estimatedMinutes} د. تقديري` : `• ⏱ ${task.estimatedMinutes}m est`;
     metaRow.appendChild(estSpan);
   }
 
@@ -187,19 +203,20 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
   deleteBtn.innerHTML = '×';
   deleteBtn.style.fontSize = '18px';
   deleteBtn.addEventListener('click', () => {
+    const _ar = getLang() === 'ar';
     Modal.confirm({
-      title: 'Delete Task',
-      message: `Are you sure you want to delete "${task.title}"?`,
-      confirmText: 'Delete',
+      title: _ar ? 'حذف المهمة' : 'Delete Task',
+      message: _ar ? `هل أنت متأكد من حذف «${task.title}»?` : `Are you sure you want to delete "${task.title}"?`,
+      confirmText: _ar ? 'حذف' : 'Delete',
       onConfirm: async () => {
         try {
           await api.deleteTask(task.id);
           row.remove();
-          Toast.success('Task deleted');
+          Toast.success(_ar ? 'تم حذف المهمة' : 'Task deleted');
           await store.refreshAll();
           if (typeof onDelete === 'function') onDelete(task);
         } catch {
-          Toast.error('Could not delete task');
+          Toast.error(_ar ? 'تعذّر حذف المهمة' : 'Could not delete task');
         }
       }
     });
@@ -213,6 +230,7 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
 export function openEditTaskModal(task = null, onSaved = null) {
   const isEditing = Boolean(task);
   const projects = store.state.projects;
+  const _ar = getLang() === 'ar';
 
   const form = document.createElement('form');
   form.className = 'task-edit-form';
@@ -220,26 +238,26 @@ export function openEditTaskModal(task = null, onSaved = null) {
   const titleGroup = document.createElement('div');
   titleGroup.className = 'form-group';
   titleGroup.innerHTML = `
-    <label for="modalTaskTitle">Task Title *</label>
-    <input type="text" id="modalTaskTitle" class="field" required maxlength="200" value="${task ? task.title : ''}" placeholder="e.g. Complete quarterly product review">
+    <label for="modalTaskTitle">${_ar ? 'عنوان المهمة *' : 'Task Title *'}</label>
+    <input type="text" id="modalTaskTitle" class="field" required maxlength="200" value="${task ? task.title : ''}" placeholder="${_ar ? 'مثال: مراجعة تقرير الربع السنوي' : 'e.g. Complete quarterly product review'}">
   `;
 
   const descGroup = document.createElement('div');
   descGroup.className = 'form-group';
   descGroup.innerHTML = `
-    <label for="modalTaskDesc">Description (optional)</label>
-    <textarea id="modalTaskDesc" class="field" rows="3" placeholder="Context, links, or sub-points...">${task ? task.description || '' : ''}</textarea>
+    <label for="modalTaskDesc">${_ar ? 'الوصف (اختياري)' : 'Description (optional)'}</label>
+    <textarea id="modalTaskDesc" class="field" rows="3" placeholder="${_ar ? 'سياق أو نقاط فرعية...' : 'Context, links, or sub-points...'}">${task ? task.description || '' : ''}</textarea>
   `;
 
   const row1 = document.createElement('div');
   row1.className = 'form-grid-2';
   row1.innerHTML = `
     <div class="form-group">
-      <label for="modalTaskDate">Scheduled Date</label>
+      <label for="modalTaskDate">${_ar ? 'تاريخ الجدولة' : 'Scheduled Date'}</label>
       <input type="date" id="modalTaskDate" class="field" value="${task ? task.dueDate || '' : getLocalDate()}">
     </div>
     <div class="form-group">
-      <label for="modalTaskTime">Due Time</label>
+      <label for="modalTaskTime">${_ar ? 'وقت الاستحقاق' : 'Due Time'}</label>
       <input type="time" id="modalTaskTime" class="field" value="${task ? task.dueTime || '09:00' : '09:00'}">
     </div>
   `;
@@ -248,20 +266,20 @@ export function openEditTaskModal(task = null, onSaved = null) {
   row2.className = 'form-grid-2';
   row2.innerHTML = `
     <div class="form-group">
-      <label for="modalTaskPriority">Priority</label>
+      <label for="modalTaskPriority">${_ar ? 'الأولوية' : 'Priority'}</label>
       <select id="modalTaskPriority" class="field">
-        <option value="urgent" ${task && task.priority === 'urgent' ? 'selected' : ''}>🔥 Urgent</option>
-        <option value="high" ${task && task.priority === 'high' ? 'selected' : ''}>⚡ High</option>
-        <option value="medium" ${!task || task.priority === 'medium' ? 'selected' : ''}>✦ Medium</option>
-        <option value="low" ${task && task.priority === 'low' ? 'selected' : ''}>☕ Low</option>
+        <option value="urgent" ${task && task.priority === 'urgent' ? 'selected' : ''}>🔥 ${_ar ? 'عاجل' : 'Urgent'}</option>
+        <option value="high" ${task && task.priority === 'high' ? 'selected' : ''}>⚡ ${_ar ? 'عالية' : 'High'}</option>
+        <option value="medium" ${!task || task.priority === 'medium' ? 'selected' : ''}>✦ ${_ar ? 'متوسطة' : 'Medium'}</option>
+        <option value="low" ${task && task.priority === 'low' ? 'selected' : ''}>☕ ${_ar ? 'منخفضة' : 'Low'}</option>
       </select>
     </div>
     <div class="form-group">
-      <label for="modalTaskSlot">Time Slot</label>
+      <label for="modalTaskSlot">${_ar ? 'فترة العمل' : 'Time Slot'}</label>
       <select id="modalTaskSlot" class="field">
-        <option value="morning" ${!task || task.timeSlot === 'morning' ? 'selected' : ''}>🌅 Morning (08:00 - 12:00)</option>
-        <option value="afternoon" ${task && task.timeSlot === 'afternoon' ? 'selected' : ''}>☀️ Afternoon (12:00 - 17:00)</option>
-        <option value="evening" ${task && task.timeSlot === 'evening' ? 'selected' : ''}>🌙 Evening (17:00 - 21:00)</option>
+        <option value="morning" ${!task || task.timeSlot === 'morning' ? 'selected' : ''}>🌅 ${_ar ? 'صباحي (08:00 - 12:00)' : 'Morning (08:00 - 12:00)'}</option>
+        <option value="afternoon" ${task && task.timeSlot === 'afternoon' ? 'selected' : ''}>☀️ ${_ar ? 'ظهيرة (12:00 - 17:00)' : 'Afternoon (12:00 - 17:00)'}</option>
+        <option value="evening" ${task && task.timeSlot === 'evening' ? 'selected' : ''}>🌙 ${_ar ? 'مساء (17:00 - 21:00)' : 'Evening (17:00 - 21:00)'}</option>
       </select>
     </div>
   `;
@@ -270,43 +288,43 @@ export function openEditTaskModal(task = null, onSaved = null) {
   row3.className = 'form-grid-2';
   row3.innerHTML = `
     <div class="form-group">
-      <label for="modalTaskEst">Estimated Minutes</label>
+      <label for="modalTaskEst">${_ar ? 'الوقت المتوقع (دقيقة)' : 'Estimated Minutes'}</label>
       <input type="number" id="modalTaskEst" class="field" min="5" step="5" value="${task ? task.estimatedMinutes || 30 : 30}">
     </div>
     <div class="form-group">
-      <label for="modalTaskMinTime">⏱ Minimum Time Goal (min)</label>
-      <input type="number" id="modalTaskMinTime" class="field" min="0" step="5" value="${task ? task.minimumMinutes || 0 : 0}" placeholder="0 = no minimum">
+      <label for="modalTaskMinTime">⏱ ${_ar ? 'حد وقت أدنى (دقيقة)' : 'Minimum Time Goal (min)'}</label>
+      <input type="number" id="modalTaskMinTime" class="field" min="0" step="5" value="${task ? task.minimumMinutes || 0 : 0}" placeholder="${_ar ? '0 = بدون حد أدنى' : '0 = no minimum'}">
     </div>
   `;
 
   const catGroup = document.createElement('div');
   catGroup.className = 'form-group';
   catGroup.innerHTML = `
-    <label for="modalTaskCategory">Category</label>
+    <label for="modalTaskCategory">${_ar ? 'التصنيف' : 'Category'}</label>
     <select id="modalTaskCategory" class="field">
-      <option value="Deep Work" ${task && task.category === 'Deep Work' ? 'selected' : ''}>Deep Work</option>
-      <option value="Engineering" ${task && task.category === 'Engineering' ? 'selected' : ''}>Engineering</option>
-      <option value="Meeting" ${task && task.category === 'Meeting' ? 'selected' : ''}>Meeting</option>
-      <option value="Health" ${task && task.category === 'Health' ? 'selected' : ''}>Health & Fitness</option>
-      <option value="Admin" ${task && task.category === 'Admin' ? 'selected' : ''}>Admin & Ops</option>
-      <option value="Learning" ${task && task.category === 'Learning' ? 'selected' : ''}>Learning</option>
+      <option value="Deep Work" ${task && task.category === 'Deep Work' ? 'selected' : ''}>${_ar ? 'عمل عميق' : 'Deep Work'}</option>
+      <option value="Engineering" ${task && task.category === 'Engineering' ? 'selected' : ''}>${_ar ? 'هندسة' : 'Engineering'}</option>
+      <option value="Meeting" ${task && task.category === 'Meeting' ? 'selected' : ''}>${_ar ? 'اجتماع' : 'Meeting'}</option>
+      <option value="Health" ${task && task.category === 'Health' ? 'selected' : ''}>${_ar ? 'صحة ولياقة' : 'Health & Fitness'}</option>
+      <option value="Admin" ${task && task.category === 'Admin' ? 'selected' : ''}>${_ar ? 'إدارة وعمليات' : 'Admin & Ops'}</option>
+      <option value="Learning" ${task && task.category === 'Learning' ? 'selected' : ''}>${_ar ? 'تعلم' : 'Learning'}</option>
     </select>
   `;
 
   form.append(titleGroup, descGroup, row1, row2, row3, catGroup);
 
   Modal.show({
-    title: isEditing ? 'Edit Task' : 'Schedule New Task',
+    title: isEditing ? (_ar ? 'تعديل المهمة' : 'Edit Task') : (_ar ? 'جدولة مهمة جديدة' : 'Schedule New Task'),
     content: form,
     footerButtons: [
-      { text: 'Cancel', className: 'btn-secondary', onClick: () => Modal.close() },
+      { text: _ar ? 'إلغاء' : 'Cancel', className: 'btn-secondary', onClick: () => Modal.close() },
       {
-        text: isEditing ? 'Save Changes' : '+ Create Task',
+        text: isEditing ? (_ar ? 'حفظ التغييرات' : 'Save Changes') : (_ar ? '+ إنشاء مهمة' : '+ Create Task'),
         className: 'btn-primary',
         onClick: async () => {
           const titleVal = form.querySelector('#modalTaskTitle').value.trim();
           if (!titleVal) {
-            Toast.error('Please enter a task title');
+            Toast.error(_ar ? 'أدخل عنوان المهمة' : 'Please enter a task title');
             return;
           }
 
@@ -326,16 +344,16 @@ export function openEditTaskModal(task = null, onSaved = null) {
           try {
             if (isEditing) {
               await api.updateTask(task.id, payload);
-              Toast.success('Task updated successfully');
+              Toast.success(_ar ? 'تم تحديث المهمة بنجاح' : 'Task updated successfully');
             } else {
               await api.createTask(payload);
-              Toast.success('Task created and scheduled! ⚡');
+              Toast.success(_ar ? 'تم إنشاء المهمة وجدولتها! ⚡' : 'Task created and scheduled! ⚡');
             }
             Modal.close();
             await store.refreshAll();
             if (typeof onSaved === 'function') onSaved();
           } catch (err) {
-            Toast.error(err.message || 'Failed to save task');
+            Toast.error(err.message || (_ar ? 'تعذّر حفظ المهمة' : 'Failed to save task'));
           }
         }
       }

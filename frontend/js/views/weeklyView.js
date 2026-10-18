@@ -2,9 +2,12 @@ import { store } from '../store.js';
 import { api } from '../api.js';
 import { Toast } from '../components/Toast.js';
 import { Modal } from '../components/Modal.js';
+import { getLang } from '../i18n.js';
 
-const DAY_NAMES = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const FULL_DAY_NAMES = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_NAMES_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DAY_NAMES_AR = ['سبت', 'أحد', 'اثن', 'ثلث', 'أرب', 'خمس', 'جمع'];
+const FULL_DAY_NAMES_EN = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const FULL_DAY_NAMES_AR = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 
 function getTodayDayIndex() {
   const date = new Date();
@@ -25,13 +28,16 @@ function getWeekDateRange() {
 
 export function renderWeeklyView(container) {
   const todayIdx = getTodayDayIndex();
+  const ar = getLang() === 'ar';
+  const DAY_NAMES = ar ? DAY_NAMES_AR : DAY_NAMES_EN;
+  const FULL_DAY_NAMES = ar ? FULL_DAY_NAMES_AR : FULL_DAY_NAMES_EN;
   let selectedDays = [0, 1, 2, 3, 4, 5, 6]; // default all days selected
 
   container.innerHTML = `
     <div class="section-heading">
       <div>
-        <h2>This Week's Habit & Goal Matrix</h2>
-        <p id="weeklyRangeLabel">${getWeekDateRange()} · <strong style="color: var(--cyan);">Today is ${FULL_DAY_NAMES[todayIdx]}</strong></p>
+        <h2>${ar ? 'مصفوفة العادات والأهداف الأسبوعية' : "This Week's Habit & Goal Matrix"}</h2>
+        <p id="weeklyRangeLabel">${getWeekDateRange()} · <strong style="color: var(--cyan);">${ar ? `اليوم هو ${FULL_DAY_NAMES[todayIdx]}` : `Today is ${FULL_DAY_NAMES[todayIdx]}`}</strong></p>
       </div>
     </div>
 
@@ -39,18 +45,18 @@ export function renderWeeklyView(container) {
     <div class="panel">
       <div class="panel-heading">
         <div>
-          <h3>Weekly Target Progress</h3>
-          <p>Discipline builds momentum. Check each day as you fulfill your habits.</p>
+          <h3>${ar ? 'تقدم الهدف الأسبوعي' : 'Weekly Target Progress'}</h3>
+          <p>${ar ? 'الانضباط يبني الزخم. علم على كل يوم تنجز فيه عادتك.' : 'Discipline builds momentum. Check each day as you fulfill your habits.'}</p>
         </div>
         <span class="stat-icon">✓</span>
       </div>
 
       <div class="weekly-summary-panel">
         <div>
-          <div class="weekly-summary-label">Overall Completion</div>
+          <div class="weekly-summary-label">${ar ? 'الإتمام الكلي' : 'Overall Completion'}</div>
           <div class="weekly-summary-number" id="weeklyPageOverallNumber">0%</div>
         </div>
-        <div class="stat-caption" id="weeklyPageOverallCount">0 completed</div>
+        <div class="stat-caption" id="weeklyPageOverallCount">${ar ? '0 مكتملة' : '0 completed'}</div>
       </div>
 
       <div class="progress-track" style="height: 8px;">
@@ -62,25 +68,25 @@ export function renderWeeklyView(container) {
     <div class="panel" style="padding: 16px 20px;">
       <div class="panel-heading" style="margin-bottom: 12px;">
         <div>
-          <h3 style="font-size: 13px;">Weekly Habits Schedule</h3>
-          <p>The column highlighted in cyan represents <strong style="color: var(--cyan);">TODAY (${DAY_NAMES[todayIdx]})</strong>. Check marks automatically sync with Today's Focus!</p>
+          <h3 style="font-size: 13px;">${ar ? 'جدول العادات الأسبوعية' : 'Weekly Habits Schedule'}</h3>
+          <p>${ar ? `العمود المميز بالسيان يمثل <strong style="color: var(--cyan);">اليوم (${DAY_NAMES[todayIdx]})</strong>. يتزامن التحديد مع تركيز اليوم تلقائياً!` : `The column highlighted in cyan represents <strong style="color: var(--cyan);">TODAY (${DAY_NAMES[todayIdx]})</strong>. Check marks automatically sync with Today's Focus!`}</p>
         </div>
-        <button class="text-button" id="goToTodayFromWeeklyBtn">Open Today's Focus →</button>
+        <button class="text-button" id="goToTodayFromWeeklyBtn">${ar ? 'افتح تركيز اليوم →' : "Open Today's Focus →"}</button>
       </div>
 
       <div class="weekly-table-wrap">
         <table class="weekly-table">
           <thead>
             <tr>
-              <th style="text-align: left; padding-left: 16px;">Habit / Routine</th>
+              <th style="text-align: left; padding-left: 16px;">${ar ? 'العادة / الروتين' : 'Habit / Routine'}</th>
               ${DAY_NAMES.map((name, idx) => `
                 <th class="${idx === todayIdx ? 'today-col-header' : ''}">
                   ${name}
-                  ${idx === todayIdx ? '<span class="today-indicator-pill">TODAY</span>' : ''}
+                  ${idx === todayIdx ? `<span class="today-indicator-pill">${ar ? 'اليوم' : 'TODAY'}</span>` : ''}
                 </th>
               `).join('')}
-              <th>Progress</th>
-              <th>Actions</th>
+              <th>${ar ? 'التقدم' : 'Progress'}</th>
+              <th>${ar ? 'إجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody id="weeklyTableBody"></tbody>
@@ -92,8 +98,8 @@ export function renderWeeklyView(container) {
     <div class="panel">
       <div class="panel-heading">
         <div>
-          <h3>Add New Habit to Weekly Schedule</h3>
-          <p>Choose habit name, target days, and which days of the week it will appear on Today's Focus.</p>
+          <h3>${ar ? 'إضافة عادة جديدة للجدول الأسبوعي' : 'Add New Habit to Weekly Schedule'}</h3>
+          <p>${ar ? "اختر اسم العادة وأيام الهدف والأيام التي ستظهر فيها في تركيز اليوم." : "Choose habit name, target days, and which days of the week it will appear on Today's Focus."}</p>
         </div>
         <span class="stat-icon">+</span>
       </div>
@@ -101,17 +107,17 @@ export function renderWeeklyView(container) {
       <form id="weeklyNewHabitForm">
         <div class="form-grid-2" style="margin-bottom: 14px;">
           <div class="form-group">
-            <label for="weeklyHabitName">Habit Name *</label>
-            <input class="field" id="weeklyHabitName" type="text" maxlength="100" placeholder="e.g. Gym Workout, Reading 20 Pages, Cold Shower" required>
+            <label for="weeklyHabitName">${ar ? 'اسم العادة *' : 'Habit Name *'}</label>
+            <input class="field" id="weeklyHabitName" type="text" maxlength="100" placeholder="${ar ? 'مثال: تمرين الجيم، قراءة 20 صفحة' : 'e.g. Gym Workout, Reading 20 Pages, Cold Shower'}" required>
           </div>
           <div class="form-group">
-            <label for="weeklyHabitTarget">Target Days Per Week</label>
+            <label for="weeklyHabitTarget">${ar ? 'أيام الهدف في الأسبوع' : 'Target Days Per Week'}</label>
             <input class="field" id="weeklyHabitTarget" type="number" min="1" max="7" value="5" required>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 16px;">
-          <label>Select Scheduled Days (Will appear in Today's Focus on these days):</label>
+          <label>${ar ? 'اختر الأيام المجدولة (ستظهر في تركيز اليوم في هذه الأيام):' : "Select Scheduled Days (Will appear in Today's Focus on these days):"}</label>
           <div class="day-selector-pills" id="habitDayPills">
             ${DAY_NAMES.map((name, idx) => `
               <button type="button" class="day-chip active" data-day-index="${idx}">${name}</button>
@@ -119,7 +125,7 @@ export function renderWeeklyView(container) {
           </div>
         </div>
 
-        <button class="btn btn-primary" type="submit">+ Add Habit to Schedule</button>
+        <button class="btn btn-primary" type="submit">${ar ? '+ إضافة عادة للجدول' : '+ Add Habit to Schedule'}</button>
       </form>
     </div>
   `;
@@ -161,7 +167,7 @@ export function renderWeeklyView(container) {
       tbody.innerHTML = `
         <tr>
           <td colspan="10" style="padding: 28px; color: var(--muted); font-style: italic;">
-            No weekly habits defined yet. Use the form below to create your schedule.
+            ${getLang() === 'ar' ? 'لا توجد عادات أسبوعية بعد. استخدم النموذج أدناه لإنشاء جدولك.' : 'No weekly habits defined yet. Use the form below to create your schedule.'}
           </td>
         </tr>
       `;
@@ -185,9 +191,10 @@ export function renderWeeklyView(container) {
         nameCell.className = 'weekly-goal-name';
 
         const scheduledDayTags = scheduled.map(d => DAY_NAMES[d]).join(', ');
+        const _ar = getLang() === 'ar';
         nameCell.innerHTML = `
           <div style="font-weight: 700; color: var(--text);">${goal.name}</div>
-          <div class="weekly-goal-target">Target: ${target}d/wk · <span style="color: var(--text-secondary);">[${scheduledDayTags}]</span></div>
+          <div class="weekly-goal-target">${_ar ? 'الهدف:' : 'Target:'} ${target}${_ar ? 'ي/أسبوع' : 'd/wk'} · <span style="color: var(--text-secondary);">[${scheduledDayTags}]</span></div>
         `;
 
         // ── Hours logged this week for this habit ──
@@ -210,7 +217,8 @@ export function renderWeeklyView(container) {
         if (habitMins > 0) {
           const timeBadge = document.createElement('div');
           timeBadge.style.cssText = 'font-size:10px;color:var(--cyan);margin-top:2px;';
-          timeBadge.textContent = `⏱ ${habitHours}h logged this week`;
+          const _ar2 = getLang() === 'ar';
+          timeBadge.textContent = _ar2 ? `⏱ ${habitHours} ساعة مسجلة هذا الأسبوع` : `⏱ ${habitHours}h logged this week`;
           nameCell.appendChild(timeBadge);
         }
         row.appendChild(nameCell);
@@ -237,18 +245,21 @@ export function renderWeeklyView(container) {
           }
 
           cb.addEventListener('change', async () => {
+            const _arMsg = getLang() === 'ar';
             try {
               if (isToday) {
                 // Use toggle-today to sync with tasks automatically
                 await api.toggleHabitToday(goal.id, cb.checked);
-                Toast.success(cb.checked ? `✓ Checked for Today! Synced with Today's Focus.` : `Reopened for Today`);
+                Toast.success(cb.checked
+                  ? (_arMsg ? `✓ تم تحديد اليوم! متزامن مع تركيز اليوم.` : `✓ Checked for Today! Synced with Today's Focus.`)
+                  : (_arMsg ? 'تم إعادة فتحه لليوم' : 'Reopened for Today'));
               } else {
                 await api.toggleWeeklyGoalDay(goal.id, dayIdx);
               }
               await store.refreshAll();
             } catch {
               cb.checked = !cb.checked;
-              Toast.error('Could not update habit');
+              Toast.error(getLang() === 'ar' ? 'تعذّر تحديث العادة' : 'Could not update habit');
             }
           });
 
@@ -259,8 +270,9 @@ export function renderWeeklyView(container) {
         // Progress cell
         const progCell = document.createElement('td');
         progCell.className = 'weekly-progress-cell';
+        const _arProg = getLang() === 'ar';
         progCell.innerHTML = `
-          <div style="font-size: 11px; font-weight: 700; margin-bottom: 4px;">${completedDays}/${target} days</div>
+          <div style="font-size: 11px; font-weight: 700; margin-bottom: 4px;">${completedDays}/${target} ${_arProg ? 'أيام' : 'days'}</div>
           <div class="progress-track" style="height: 6px;">
             <div class="progress-fill ${progress >= 100 ? 'green' : ''}" style="width: ${progress}%;"></div>
           </div>
@@ -313,10 +325,13 @@ export function renderWeeklyView(container) {
     }
 
     // Overall Progress
-    const overall = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
-    container.querySelector('#weeklyPageOverallNumber').textContent = `${overall}%`;
-    container.querySelector('#weeklyPageOverallCount').textContent = `${totalCompleted} / ${totalTarget} target days completed`;
-    container.querySelector('#weeklyPageOverallFill').style.width = `${overall}%`;
+    const overallPct = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
+    const _arSummary = getLang() === 'ar';
+    container.querySelector('#weeklyPageOverallNumber').textContent = `${overallPct}%`;
+    container.querySelector('#weeklyPageOverallCount').textContent = _arSummary
+      ? `${totalCompleted} / ${totalTarget} أيام هدف مكتملة`
+      : `${totalCompleted} / ${totalTarget} target days completed`;
+    container.querySelector('#weeklyPageOverallFill').style.width = `${overallPct}%`;
   }
 
   // Form submit
@@ -328,7 +343,7 @@ export function renderWeeklyView(container) {
     const name = nameInput.value.trim();
 
     if (!name || target < 1 || target > 7) {
-      Toast.error('Please enter a valid habit name and target (1-7)');
+      Toast.error(getLang() === 'ar' ? 'أدخل اسم عادة صحيحًا وهدفًا من 1 إلى 7' : 'Please enter a valid habit name and target (1-7)');
       return;
     }
 
@@ -342,10 +357,10 @@ export function renderWeeklyView(container) {
       targetInput.value = '5';
       selectedDays = [0, 1, 2, 3, 4, 5, 6];
       pillsContainer.querySelectorAll('.day-chip').forEach(c => c.classList.add('active'));
-      Toast.success('Weekly habit registered and added to schedule! ⚡');
+      Toast.success(getLang() === 'ar' ? 'تم تسجيل العادة الأسبوعية وإضافتها للجدول! ⚡' : 'Weekly habit registered and added to schedule! ⚡');
       await store.refreshAll();
     } catch {
-      Toast.error('Failed to create weekly habit');
+      Toast.error(getLang() === 'ar' ? 'تعذّر إنشاء العادة' : 'Failed to create weekly habit');
     }
   });
 

@@ -677,7 +677,7 @@ class ApiClient {
     return { success: true, isCompletedToday: nextState, goal, todayIndex };
   }
 
-  async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '' } = {}) {
+  async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '', totalMinutes = 0, sessionMinutes = 0 } = {}) {
     // ── 1. Find the habit locally (by ID first, then by name as fallback) ──
     const key = getUserKey('weekly');
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
