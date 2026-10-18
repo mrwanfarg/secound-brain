@@ -4,6 +4,7 @@ import { createTaskCard, openEditTaskModal } from '../components/TaskCard.js';
 import { Toast } from '../components/Toast.js';
 import { Modal } from '../components/Modal.js';
 import { createEmptyState } from '../components/EmptyState.js';
+import { t, getLang } from '../i18n.js';
 
 const DAY_NAMES = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -69,6 +70,9 @@ export function renderTodayView(container) {
         <span style="font-size: 11px; color: var(--muted); margin-left: auto;" id="stopwatchStatusCaption">Ready to track your time</span>
       </div>
     </div>
+
+    <!-- TODAY'S TOTAL TIME FOCUS SUMMARY BANNER -->
+    <div id="todayTimeSummaryContainer"></div>
 
     <!-- 1. TODAY'S SCHEDULED HABITS (CONNECTED TO WEEKLY HABITS) -->
     <section class="panel" id="todayHabitsSection" style="border: 1px solid rgba(155, 123, 255, 0.3);">
@@ -273,9 +277,18 @@ export function renderTodayView(container) {
       const target = Number(habit.target) || 1;
       const completedCount = days.filter(Boolean).length;
 
-      // Find if there is a linked task for today to get logged actualMinutes
-      const linkedTask = tasks.find(t => t.title.toLowerCase() === habit.name.toLowerCase() && t.dueDate === todayDate);
-      const minutesSpent = linkedTask ? (linkedTask.actualMinutes || 0) : 0;
+      // Find if there is a linked task or timer session for today to get logged actualMinutes
+      const habitNameLower = (habit.name || '').toLowerCase().trim();
+      const linkedTasks = tasks.filter(t => t.title && t.title.toLowerCase().trim() === habitNameLower && t.dueDate === todayDate);
+      const taskMins = linkedTasks.reduce((sum, t) => sum + (Number(t.actualMinutes) || 0), 0);
+      const sessionMins = (store.state.timeSessions || [])
+        .filter(s => {
+          const sName = (s.activityName || s.activity_name || '').toLowerCase().trim();
+          const sDate = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+          return sName === habitNameLower && sDate === todayDate;
+        })
+        .reduce((sum, s) => sum + (Number(s.durationMinutes || s.duration_minutes) || 0), 0);
+      const minutesSpent = Math.max(taskMins, sessionMins);
 
       const isCurrentTiming = store.state.stopwatch.isRunning && store.state.stopwatch.activeItemId === habit.id;
 
@@ -319,14 +332,22 @@ export function renderTodayView(container) {
       habitBadge.textContent = 'Weekly Habit';
       titleLine.appendChild(habitBadge);
 
+      const isAr = getLang() === 'ar';
+      const timeBadge = document.createElement('span');
+      timeBadge.className = 'task-badge';
       if (minutesSpent > 0) {
-        const timeBadge = document.createElement('span');
-        timeBadge.className = 'task-badge';
         timeBadge.style.background = 'rgba(91, 224, 235, 0.15)';
         timeBadge.style.color = 'var(--cyan)';
-        timeBadge.textContent = `⏱ ${minutesSpent}m logged today`;
-        titleLine.appendChild(timeBadge);
+        timeBadge.style.fontWeight = '700';
+        timeBadge.textContent = isAr 
+          ? `⏱ استغرقت ${minutesSpent} دقيقة اليوم` 
+          : `⏱ ${minutesSpent}m logged today`;
+      } else {
+        timeBadge.style.background = 'rgba(255, 255, 255, 0.05)';
+        timeBadge.style.color = 'var(--muted)';
+        timeBadge.textContent = isAr ? '⏱ 0 دقيقة' : '⏱ 0m logged';
       }
+      titleLine.appendChild(timeBadge);
 
       details.appendChild(titleLine);
 
@@ -439,20 +460,97 @@ export function renderTodayView(container) {
     renderList(eveningEl, eveningTasks, 'No evening tasks scheduled.');
   }
 
+  // RENDER TODAY TOTAL TIME SUMMARY BANNER
+  function renderTodayTimeSummary() {
+    const summaryEl = container.querySelector('#todayTimeSummaryContainer');
+    if (!summaryEl) return;
+
+    const isAr = getLang() === 'ar';
+    const tasks = store.state.tasks || [];
+    const sessions = store.state.timeSessions || [];
+
+    // All items completed or timed today
+    const itemMap = {}; // name -> { name, minutes, isDone }
+
+    // From tasks for today
+    tasks.filter(t => t.dueDate === todayDate).forEach(t => {
+      const name = t.title || 'Task';
+      if (!itemMap[name]) itemMap[name] = { name, minutes: 0, isDone: Boolean(t.completed) };
+      const mins = Number(t.actualMinutes) || 0;
+      if (mins > 0) itemMap[name].minutes = Math.max(itemMap[name].minutes, mins);
+      if (t.completed) itemMap[name].isDone = true;
+    });
+
+    // From time sessions for today
+    sessions.filter(s => {
+      const d = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+      return d === todayDate;
+    }).forEach(s => {
+      const name = s.activityName || s.activity_name || 'Focus Session';
+      if (!itemMap[name]) itemMap[name] = { name, minutes: 0, isDone: true };
+      const mins = Number(s.durationMinutes || s.duration_minutes) || 0;
+      if (mins > 0) itemMap[name].minutes = Math.max(itemMap[name].minutes, mins);
+    });
+
+    const items = Object.values(itemMap);
+    const totalTodayMins = items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+    const totalHours = (totalTodayMins / 60).toFixed(1);
+    const completedCount = items.filter(it => it.isDone || it.minutes > 0).length;
+
+    const formattedTime = totalTodayMins >= 60 
+      ? (isAr ? `${Math.floor(totalTodayMins/60)} ساعة و ${totalTodayMins%60} دقيقة` : `${Math.floor(totalTodayMins/60)}h ${totalTodayMins%60}m`)
+      : (isAr ? `${totalTodayMins} دقيقة` : `${totalTodayMins} mins`);
+
+    summaryEl.innerHTML = `
+      <div class="today-time-summary-banner">
+        <div class="today-time-left">
+          <div class="today-time-icon">⏱</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cyan);">
+              ${isAr ? 'إجمالي وقت التركيز اليوم (محسوب تلقائياً)' : 'TODAY\'S TOTAL FOCUS TIME (AUTO CALCULATED)'}
+            </div>
+            <div class="today-time-digits">
+              ${formattedTime} ${totalTodayMins >= 60 ? `<span style="font-size: 13px; color: var(--muted); font-weight: 600;">(${totalHours}h)</span>` : ''}
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">
+              ${isAr ? `${completedCount} عناصر تم العمل عليها اليوم` : `${completedCount} items focused on today`}
+            </div>
+          </div>
+        </div>
+
+        <div class="today-time-items-wrap">
+          ${items.filter(it => it.minutes > 0).map(it => `
+            <span class="task-badge" style="background: rgba(91, 224, 235, 0.12); color: var(--cyan); border: 1px solid rgba(91, 224, 235, 0.25); font-weight: 700;">
+              ✓ ${it.name} (${it.minutes}${isAr ? 'د' : 'm'})
+            </span>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // INITIAL DRAW
   updateStopwatchUI();
+  renderTodayTimeSummary();
   renderTodayHabits();
   renderSlots();
 
   // SUBSCRIBE TO UPDATES
-  store.subscribe('weeklyGoals', () => renderTodayHabits());
+  store.subscribe('weeklyGoals', () => {
+    renderTodayHabits();
+    renderTodayTimeSummary();
+  });
   store.subscribe('tasks', () => {
     renderTodayHabits();
+    renderTodayTimeSummary();
     renderSlots();
+  });
+  store.subscribe('timeSessions', () => {
+    renderTodayHabits();
+    renderTodayTimeSummary();
   });
   store.subscribe('stopwatch', () => {
     updateStopwatchUI();
-    // Update live badge on active habit row without full re-render
     const sw = store.state.stopwatch;
     const liveBadge = container.querySelector('.live-clock-badge');
     if (liveBadge && sw.isRunning) {

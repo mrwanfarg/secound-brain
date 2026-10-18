@@ -12,7 +12,7 @@ const translations = {
       today:      "Today's Focus",
       weekly:     'Weekly',
       tasks:      'Tasks',
-      notes:      'Notes',
+      notes:      'Monthly Archive',
       insights:   'Insights',
       settings:   'Settings',
     },
@@ -129,10 +129,10 @@ const translations = {
       total_time_logged_today: 'Total time logged on today\'s items:',
     },
 
-    // ── Notes ────────────────────────────────────────────────────
+    // ── Monthly Archive (Replaces Notes) ────────────────────────
     notes: {
-      title: 'Knowledge Base & Capture',
-      subtitle: 'A second brain for your mental clarity — notes, insights, and references.',
+      title: 'Monthly Accomplishments & Time Archive',
+      subtitle: 'Review monthly accomplishments, completed days, and total hours per habit and task.',
     },
 
     // ── Insights ─────────────────────────────────────────────────
@@ -181,7 +181,7 @@ const translations = {
       today:      'تركيز اليوم',
       weekly:     'الأسبوعي',
       tasks:      'المهام',
-      notes:      'الملاحظات',
+      notes:      'سجل الشهور والأرشيف',
       insights:   'التحليلات',
       settings:   'الإعدادات',
     },
@@ -295,8 +295,8 @@ const translations = {
     },
 
     notes: {
-      title: 'قاعدة المعرفة والتقاط الأفكار',
-      subtitle: 'ذاكرتك الثانية للوضوح الذهني — ملاحظات ورؤى ومراجع.',
+      title: 'سجل الشهور والأرشيف الشهري للإنجازات',
+      subtitle: 'استعرض أي شهر لرؤية كل ما تم إنجازه، والأيام التي عملت فيها على كل عادة، وإجمالي الوقت والساعات.',
     },
 
     insights: {

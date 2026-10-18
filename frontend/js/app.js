@@ -6,7 +6,7 @@ import { renderDashboardView } from './views/dashboardView.js';
 import { renderTodayView } from './views/todayView.js';
 import { renderTasksView } from './views/tasksView.js';
 import { renderWeeklyView } from './views/weeklyView.js';
-import { renderNotesView } from './views/notesView.js';
+import { renderMonthlyArchiveView } from './views/monthlyArchiveView.js';
 import { renderInsightsView } from './views/insightsView.js';
 import { renderSettingsView } from './views/settingsView.js';
 import { AuthModal } from './components/AuthModal.js';
@@ -35,9 +35,9 @@ const PAGE_META = {
     breadcrumb: 'Tasks'
   },
   Notes: {
-    title: 'Knowledge Base & Capture',
-    subtitle: 'A second brain for your mental clarity — notes, insights, and references.',
-    breadcrumb: 'Notes'
+    title: 'Monthly History & Accomplishments Archive',
+    subtitle: 'Review monthly accomplishments, completed days, and total hours per habit and task.',
+    breadcrumb: 'Monthly Review'
   },
   Insights: {
     title: 'Productivity Velocity & Analytics',
@@ -61,7 +61,7 @@ class App {
       Today: renderTodayView,
       Weekly: renderWeeklyView,
       Tasks: renderTasksView,
-      Notes: renderNotesView,
+      Notes: renderMonthlyArchiveView,
       Insights: renderInsightsView,
       Settings: renderSettingsView
     };
@@ -326,7 +326,7 @@ class App {
       Today:     { icon: '◷', label: t('nav.today') },
       Weekly:    { icon: '▦', label: t('nav.weekly') },
       Tasks:     { icon: '☑', label: t('nav.tasks') },
-      Notes:     { icon: '▤', label: t('nav.notes') },
+      Notes:     { icon: '🏛️', label: t('nav.notes') },
       Insights:  { icon: '⌁', label: t('nav.insights') },
       Settings:  { icon: '⚙', label: t('nav.settings') }
     };
