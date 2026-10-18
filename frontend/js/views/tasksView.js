@@ -456,10 +456,35 @@ export function renderTasksView(container) {
     target.innerHTML = '';
 
     // Summary of what was finished today from the schedule with exact tracked time
-    const todayCompletedTasks = store.state.tasks.filter(t => t.dueDate === today && t.completed);
-    const todayTrackedMinutes = todayCompletedTasks.reduce((sum, t) => sum + (Number(t.actualMinutes) || 0), 0);
+    const todaySessions = (store.state.timeSessions || []).filter(s => {
+      const d = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+      return d === today;
+    });
 
-    if (todayCompletedTasks.length > 0) {
+    const todayItemsMap = {};
+    store.state.tasks.filter(t => t.dueDate === today && (t.completed || Number(t.actualMinutes) > 0)).forEach(t => {
+      const key = (t.title || 'Task').toLowerCase().trim();
+      todayItemsMap[key] = {
+        title: t.title,
+        minutes: Number(t.actualMinutes) || 0
+      };
+    });
+
+    todaySessions.forEach(s => {
+      const name = s.activityName || s.activity_name || 'Focus Session';
+      const key = name.toLowerCase().trim();
+      const sMins = Number(s.durationMinutes || s.duration_minutes) || 0;
+      if (!todayItemsMap[key]) {
+        todayItemsMap[key] = { title: name, minutes: sMins };
+      } else {
+        todayItemsMap[key].minutes = Math.max(todayItemsMap[key].minutes, sMins);
+      }
+    });
+
+    const todayCompletedList = Object.values(todayItemsMap);
+    const todayTrackedMinutes = todayCompletedList.reduce((sum, item) => sum + (Number(item.minutes) || 0), 0);
+
+    if (todayCompletedList.length > 0) {
       const summaryBanner = document.createElement('div');
       summaryBanner.className = 'panel';
       summaryBanner.style.padding = '14px 18px';
@@ -479,7 +504,7 @@ export function renderTasksView(container) {
           <span style="color: var(--green); font-size: 16px;">✓</span>
           <div>
             <div style="font-size: 13px; font-weight: 700; color: var(--text);">
-              ${t('tasks.completed_today_from_schedule')} (${todayCompletedTasks.length} ${isAr ? 'عناصر' : 'items'})
+              ${t('tasks.completed_today_from_schedule')} (${todayCompletedList.length} ${isAr ? 'عناصر' : 'items'})
             </div>
             <div style="font-size: 11px; color: var(--muted);">
               ${t('tasks.total_time_logged_today')} <strong style="color: var(--cyan);">${todayTrackedMinutes} ${t('common.minutes_short')}</strong>
@@ -487,9 +512,9 @@ export function renderTasksView(container) {
           </div>
         </div>
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-          ${todayCompletedTasks.map(t => `
+          ${todayCompletedList.map(item => `
             <span class="task-badge" style="background: rgba(116, 214, 160, 0.12); color: var(--green); border: 1px solid rgba(116, 214, 160, 0.25);">
-              ✓ ${t.title} ${t.actualMinutes ? `<strong style="color: var(--cyan);">(⏱ ${t.actualMinutes}${isAr ? 'د' : 'm'})</strong>` : ''}
+              ✓ ${item.title} ${item.minutes ? `<strong style="color: var(--cyan);">(⏱ ${item.minutes}${isAr ? 'د' : 'm'})</strong>` : ''}
             </span>
           `).join('')}
         </div>

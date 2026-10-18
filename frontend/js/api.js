@@ -677,101 +677,157 @@ class ApiClient {
     return { success: true, isCompletedToday: nextState, goal, todayIndex };
   }
 
-  async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '', totalMinutes = 0, sessionMinutes = 0 } = {}) {
-    // ── 1. Find the habit locally (by ID first, then by name as fallback) ──
+  async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '', totalMinutes = 0, sessionMinutes = 0, title = '' } = {}) {
     const key = getUserKey('weekly');
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
-    const goal = raw.find(g => g.id === id) || raw.find(g => g.id?.toString() === id?.toString());
-    if (!goal) {
-      // Habit not in localStorage — silently succeed, data was already saved by Supabase
-      console.warn('completeHabitToday: habit not found locally, skipping local update for id:', id);
-      return { success: true, message: 'Session logged.' };
+    let goal = raw.find(g => g.id === id || g.id?.toString() === id?.toString());
+
+    // Fallback: check store state or lookup by title
+    if (!goal && typeof store !== 'undefined' && store.state?.weeklyGoals) {
+      const fromStore = store.state.weeklyGoals.find(g => 
+        g.id === id || g.id?.toString() === id?.toString() || 
+        (g.name && title && g.name.toLowerCase().trim() === title.toLowerCase().trim())
+      );
+      if (fromStore) {
+        goal = { ...fromStore };
+        raw.push(goal);
+      }
+    }
+    if (!goal && title) {
+      goal = raw.find(g => g.name && g.name.toLowerCase().trim() === title.toLowerCase().trim());
     }
 
     const todayIndex = getTodayDayIndex();
-    const todayDate  = getTodayString(0);
-    const actualMins = Math.max(1, Math.round(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
-    const finalTotalMins = totalMinutes || actualMins;
-    const addedSessionMins = sessionMinutes || actualMins;
+    const todayDate = getTodayString(0);
+    const calculatedMins = Math.max(1, Math.ceil(durationMinutes || (elapsedSeconds ? elapsedSeconds / 60 : 0)));
+    const finalTotalMins = Math.max(1, totalMinutes || calculatedMins);
+    const addedSessionMins = Math.max(1, sessionMinutes || calculatedMins);
+    const habitName = goal ? goal.name : (title || 'Focus Session');
+    const nowIso = new Date().toISOString();
+    const startTime = new Date(Date.now() - addedSessionMins * 60000).toISOString();
 
-    // ── 2. Mark habit day as done ────────────────────────────────
-    if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
-    goal.days[todayIndex] = true;
-    localStorage.setItem(key, JSON.stringify(raw));
+    // ── 1. Mark habit day as done in weekly matrix ───────────────
+    if (goal) {
+      if (!Array.isArray(goal.days)) goal.days = [false, false, false, false, false, false, false];
+      goal.days[todayIndex] = true;
+      localStorage.setItem(key, JSON.stringify(raw));
+    }
 
-    // ── 3. Create/update matching task in localStorage ───────────
+    // ── 2. Create or update matching task in LocalStorage ────────
     const tasksKey = getUserKey('tasks');
     const tasks = JSON.parse(localStorage.getItem(tasksKey) || '[]');
-    let task = tasks.find(t => t.title && t.title.toLowerCase() === goal.name.toLowerCase() && t.dueDate === todayDate);
+    let task = tasks.find(t => t.title && t.title.toLowerCase().trim() === habitName.toLowerCase().trim() && t.dueDate === todayDate);
 
     if (task) {
-      task.completed    = true;
-      task.completedAt  = new Date().toISOString();
+      task.completed = true;
+      task.status = 'completed';
+      task.completedAt = nowIso;
       task.actualMinutes = Math.max(Number(task.actualMinutes) || 0, finalTotalMins);
     } else {
       task = {
-        id: `local-task-${Date.now()}`,
-        title: goal.name,
+        id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: habitName,
         description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${finalTotalMins} mins.`,
         dueDate: todayDate,
         dueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timeSlot: 'morning',
         priority: 'high',
         category: 'Habit',
+        status: 'completed',
         completed: true,
-        completedAt: new Date().toISOString(),
+        completedAt: nowIso,
         estimatedMinutes: finalTotalMins,
         actualMinutes: finalTotalMins,
-        createdAt: new Date().toISOString()
+        createdAt: nowIso
       };
       tasks.unshift(task);
     }
     localStorage.setItem(tasksKey, JSON.stringify(tasks));
 
-    // ── 4. Log time session in localStorage ─────────────────────
+    // ── 3. Log time session in LocalStorage ───────────────────────
     const timersKey = getUserKey('timers');
     const timers = JSON.parse(localStorage.getItem(timersKey) || '[]');
+    const sessionId = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const session = {
-      id: `timer-${Date.now()}`,
-      activityName: goal.name,
+      id: sessionId,
+      activityName: habitName,
       taskId: task.id,
       durationMinutes: addedSessionMins,
-      startTime: new Date(Date.now() - addedSessionMins * 60000).toISOString(),
-      endTime: new Date().toISOString(),
-      notes: notes || `Recorded via stopwatch in Today's Focus`,
-      createdAt: new Date().toISOString()
+      startTime: startTime,
+      endTime: nowIso,
+      notes: notes || `Recorded via stopwatch on ${todayDate}`,
+      createdAt: nowIso
     };
     timers.unshift(session);
     localStorage.setItem(timersKey, JSON.stringify(timers));
 
-    // ── 5. Cloud sync – fire-and-forget, NEVER throw ─────────────
-    // (local-task-xxx and timer-xxx are not valid UUIDs for Supabase,
-    //  so we omit task_id from the cloud insert)
+    // ── 4. Cloud Sync with Supabase (fully awaited) ──────────────
     try {
       const supabase = getSupabase();
       const user = auth.getCurrentUser();
       if (supabase && user?.isCloud) {
-        // Update habit days array
-        supabase.from('weekly_goals')
-          .update({ days: goal.days })
-          .eq('id', id)
-          .then(({ error }) => { if (error) console.warn('Supabase habit update:', error.message); });
+        // A) Update weekly habit if exists
+        if (goal && goal.id) {
+          await supabase.from('weekly_goals')
+            .update({ days: goal.days })
+            .eq('id', goal.id);
+        }
 
-        // Insert time session (omit task_id – not a valid UUID)
-        supabase.from('time_sessions').insert({
+        // B) Update or insert matching task in Supabase
+        const { data: existingTasks } = await supabase.from('tasks')
+          .select('id, actual_minutes')
+          .ilike('title', habitName)
+          .eq('due_date', todayDate);
+
+        if (existingTasks && existingTasks.length > 0) {
+          const existing = existingTasks[0];
+          const newActual = Math.max(Number(existing.actual_minutes) || 0, finalTotalMins);
+          await supabase.from('tasks').update({
+            completed: true,
+            status: 'completed',
+            completed_at: nowIso,
+            actual_minutes: newActual
+          }).eq('id', existing.id);
+          task.id = existing.id;
+          task.actualMinutes = newActual;
+        } else {
+          await supabase.from('tasks').insert({
+            id: task.id,
+            user_id: user.id,
+            title: habitName,
+            description: `Completed from Weekly Habits schedule on ${todayDate}. Duration: ${finalTotalMins} mins.`,
+            due_date: todayDate,
+            due_time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time_slot: 'morning',
+            priority: 'high',
+            category: 'Habit',
+            status: 'completed',
+            completed: true,
+            completed_at: nowIso,
+            estimated_minutes: finalTotalMins,
+            actual_minutes: finalTotalMins
+          });
+        }
+
+        // C) Insert time session in Supabase (with id, start_time, end_time)
+        await supabase.from('time_sessions').insert({
+          id: sessionId,
           user_id: user.id,
-          activity_name: goal.name,
-          duration_minutes: actualMins,
+          activity_name: habitName,
+          task_id: task.id,
+          duration_minutes: addedSessionMins,
+          start_time: startTime,
+          end_time: nowIso,
           notes: session.notes
-        }).then(({ error }) => { if (error) console.warn('Supabase session insert:', error.message); });
+        });
       }
     } catch (cloudErr) {
-      console.warn('Cloud sync skipped:', cloudErr.message);
+      console.warn('Supabase completeHabitToday sync warning:', cloudErr);
     }
 
     return {
       success: true,
-      message: `Habit "${goal.name}" completed for today! Logged ${actualMins}m to Tasks.`,
+      message: `Habit "${habitName}" completed! Logged ${finalTotalMins}m.`,
       goal,
       task,
       session
@@ -895,13 +951,17 @@ class ApiClient {
               id: s.id,
               activityName: s.activity_name,
               taskId: s.task_id,
-              durationMinutes: s.duration_minutes,
-              notes: s.notes,
+              durationMinutes: Number(s.duration_minutes) || 0,
+              startTime: s.start_time || s.created_at,
+              endTime: s.end_time || s.created_at,
+              notes: s.notes || '',
               createdAt: s.created_at
             }))
           };
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Supabase getTimeSessions fallback to local:', e);
+      }
     }
 
     const key = getUserKey('timers');
@@ -910,18 +970,29 @@ class ApiClient {
   }
 
   async logTimeSession(sessionData) {
-    const id = `timer-${Date.now()}`;
+    const id = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
+    const durationMinutes = Math.max(1, Number(sessionData.durationMinutes) || 0);
+    const startTime = sessionData.startTime || new Date(Date.now() - durationMinutes * 60000).toISOString();
+    const endTime = sessionData.endTime || nowIso;
+
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('time_sessions').insert({
-        id,
-        user_id: user.id,
-        activity_name: sessionData.activityName,
-        task_id: sessionData.taskId || null,
-        duration_minutes: Number(sessionData.durationMinutes) || 0,
-        notes: sessionData.notes || ''
-      }).catch(() => {});
+      try {
+        await supabase.from('time_sessions').insert({
+          id,
+          user_id: user.id,
+          activity_name: sessionData.activityName,
+          task_id: sessionData.taskId || null,
+          duration_minutes: durationMinutes,
+          start_time: startTime,
+          end_time: endTime,
+          notes: sessionData.notes || ''
+        });
+      } catch (err) {
+        console.warn('Supabase logTimeSession insert error:', err);
+      }
     }
 
     const key = getUserKey('timers');
@@ -929,8 +1000,10 @@ class ApiClient {
     const newSession = {
       ...sessionData,
       id,
-      durationMinutes: Number(sessionData.durationMinutes) || 0,
-      createdAt: new Date().toISOString()
+      durationMinutes,
+      startTime,
+      endTime,
+      createdAt: nowIso
     };
     raw.unshift(newSession);
     localStorage.setItem(key, JSON.stringify(raw));

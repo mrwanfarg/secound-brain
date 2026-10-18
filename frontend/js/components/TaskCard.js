@@ -169,21 +169,13 @@ export function createTaskCard(task, { onUpdate = null, onDelete = null, compact
   const timerBtn = document.createElement('button');
   timerBtn.type = 'button';
   timerBtn.className = 'btn btn-icon';
-  timerBtn.title = 'Start Focus Timer for this task';
+  const _isAr = getLang() === 'ar';
+  timerBtn.title = _isAr ? `بدء توقيت المهمة: "${task.title}"` : `Start Stopwatch for "${task.title}"`;
   timerBtn.innerHTML = '⏱';
   timerBtn.addEventListener('click', () => {
-    store.setState({
-      timer: {
-        ...store.state.timer,
-        linkedTaskId: task.id,
-        activityName: task.title,
-        secondsLeft: (task.estimatedMinutes || 25) * 60,
-        totalSeconds: (task.estimatedMinutes || 25) * 60,
-        isRunning: true
-      }
-    });
-    Toast.info(`Focus timer started for: "${task.title}"`);
-    // Navigate to Today view to show timer
+    store.startStopwatch(task.id, task.title, 'task');
+    Toast.info(_isAr ? `⏱ بدأ العداد لمهمة "${task.title}". الانتقال إلى تركيز اليوم...` : `⏱ Stopwatch started for "${task.title}". Opening Today...`);
+    // Navigate to Today view to show live stopwatch
     window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Today' } }));
   });
 

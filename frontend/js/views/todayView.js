@@ -223,26 +223,53 @@ export function renderTodayView(container) {
           elapsedSeconds: result.elapsedSeconds,
           totalMinutes: totalMins,
           sessionMinutes: sessionMins,
+          title: sessionTitle,
           notes: `Tracked live via Stopwatch on ${todayDate}`
         });
       } else {
-        await api.createTask({
-          title: sessionTitle,
-          description: `Finished via Stopwatch. Tracked duration: ${totalMins} minutes.`,
-          dueDate: todayDate,
-          priority: 'high',
-          category: 'Deep Work',
-          completed: true,
-          completedAt: new Date().toISOString(),
-          actualMinutes: totalMins
-        });
-        await api.logTimeSession({
-          activityName: sessionTitle,
-          durationMinutes: sessionMins,
-          notes: "Completed from Today's Focus stopwatch"
-        });
+        // If it's a task or general focus session:
+        const existingTask = (store.state.tasks || []).find(t => 
+          (result.itemId && t.id === result.itemId) ||
+          (t.title && t.title.toLowerCase().trim() === sessionTitle.toLowerCase().trim() && t.dueDate === todayDate)
+        );
+
+        if (existingTask) {
+          const newActual = Math.max(Number(existingTask.actualMinutes) || 0, totalMins);
+          await api.updateTask(existingTask.id, {
+            completed: true,
+            status: 'completed',
+            actualMinutes: newActual
+          });
+          await api.logTimeSession({
+            activityName: sessionTitle,
+            taskId: existingTask.id,
+            durationMinutes: sessionMins,
+            notes: "Completed from Today's Focus stopwatch"
+          });
+        } else {
+          const newTaskRes = await api.createTask({
+            title: sessionTitle,
+            description: `Finished via Stopwatch. Tracked duration: ${totalMins} minutes.`,
+            dueDate: todayDate,
+            priority: 'high',
+            category: 'Deep Work',
+            status: 'completed',
+            completed: true,
+            completedAt: new Date().toISOString(),
+            actualMinutes: totalMins
+          });
+          await api.logTimeSession({
+            activityName: sessionTitle,
+            taskId: newTaskRes?.data?.id || null,
+            durationMinutes: sessionMins,
+            notes: "Completed from Today's Focus stopwatch"
+          });
+        }
       }
       await store.refreshAll();
+      renderTodayHabits();
+      renderTodayTimeSummary();
+      renderSlots();
     } catch (err) {
       Toast.error('Could not save session: ' + err.message);
     }
@@ -418,10 +445,12 @@ export function renderTodayView(container) {
               elapsedSeconds: res.elapsedSeconds,
               totalMinutes: totalMins,
               sessionMinutes: sessionMins,
+              title: habit.name,
               notes: `Tracked via stopwatch on ${todayDate}`
             });
             await store.refreshAll();
             renderTodayHabits();
+            renderTodayTimeSummary();
           } catch (err) {
             Toast.error('Could not save: ' + err.message);
           }

@@ -174,27 +174,30 @@ class Store {
 
   /** Get total seconds already logged today for an item (habit or task) */
   getTodayLoggedSeconds(itemId, title) {
-    const today = new Date().toISOString().split('T')[0];
+    const localD = new Date();
+    const localToday = `${localD.getFullYear()}-${String(localD.getMonth() + 1).padStart(2, '0')}-${String(localD.getDate()).padStart(2, '0')}`;
+    const utcToday = localD.toISOString().split('T')[0];
+    const isToday = (d) => d === localToday || d === utcToday;
     const titleLower = (title || '').toLowerCase().trim();
 
     // Check matching tasks for today
     const tasks = this.state.tasks || [];
-    const matchingTask = tasks.find(t => 
+    const matchingTasks = tasks.filter(t => 
       (t.id === itemId || (t.title && t.title.toLowerCase().trim() === titleLower)) &&
-      t.dueDate === today
+      isToday(t.dueDate)
     );
-    let mins = matchingTask ? (Number(matchingTask.actualMinutes) || 0) : 0;
+    const taskMins = matchingTasks.reduce((sum, t) => sum + (Number(t.actualMinutes) || 0), 0);
 
     // Check time sessions for today
     const sessions = this.state.timeSessions || [];
     const todaySessions = sessions.filter(s => {
       const sName = (s.activityName || s.activity_name || '').toLowerCase().trim();
       const sDate = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
-      return sName === titleLower && sDate === today;
+      return sName === titleLower && isToday(sDate);
     });
     const sessionMins = todaySessions.reduce((acc, s) => acc + (Number(s.durationMinutes || s.duration_minutes) || 0), 0);
 
-    mins = Math.max(mins, sessionMins);
+    const mins = Math.max(taskMins, sessionMins);
     return mins * 60;
   }
 
@@ -359,8 +362,9 @@ class Store {
     localStorage.removeItem(Store.SW_KEY);
     this.notify('stopwatch');
 
-    const totalMinutes = Math.max(1, Math.round(finalSeconds / 60));
-    const addedMinutes = Math.max(1, Math.round((finalSeconds - initialSeconds) / 60));
+    const totalMinutes = finalSeconds > 0 ? Math.max(1, Math.ceil(finalSeconds / 60)) : 0;
+    const addedDelta = finalSeconds - initialSeconds;
+    const addedMinutes = addedDelta > 0 ? Math.max(1, Math.ceil(addedDelta / 60)) : (totalMinutes || 1);
 
     return {
       elapsedSeconds: finalSeconds,
