@@ -52,7 +52,12 @@ export function renderTodayView(container) {
             <h3 id="stopwatchItemTitle" style="font-size: 16px; margin: 2px 0 0; color: var(--text);">${isAr ? 'لا توجد جلسة نشطة' : 'No active session'}</h3>
           </div>
         </div>
-        <div class="stopwatch-digits" id="stopwatchClockDisplay">00:00</div>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div class="stopwatch-start-badge" id="stopwatchStartBadge" style="display: none; align-items: center; gap: 6px; padding: 5px 12px; background: rgba(91, 224, 235, 0.12); border: 1px solid rgba(91, 224, 235, 0.3); border-radius: 8px; color: var(--cyan); font-size: 13px; font-weight: 700;">
+            ⏰ <span id="stopwatchStartBadgeText"></span>
+          </div>
+          <div class="stopwatch-digits" id="stopwatchClockDisplay">00:00</div>
+        </div>
       </div>
 
       <!-- Completion banner (hidden until Finish is pressed) -->
@@ -141,6 +146,8 @@ export function renderTodayView(container) {
   const pulseDot = container.querySelector('#stopwatchPulseDot');
   const titleEl = container.querySelector('#stopwatchItemTitle');
   const clockEl = container.querySelector('#stopwatchClockDisplay');
+  const startBadge = container.querySelector('#stopwatchStartBadge');
+  const startBadgeText = container.querySelector('#stopwatchStartBadgeText');
   const mainToggleBtn = container.querySelector('#stopwatchMainToggleBtn');
   const pauseBtn = container.querySelector('#stopwatchPauseBtn');
   const finishBtn = container.querySelector('#stopwatchFinishBtn');
@@ -158,9 +165,17 @@ export function renderTodayView(container) {
     if (sw.isRunning) {
       pulseDot.className = sw.isPaused ? 'pulse-indicator paused' : 'pulse-indicator running';
       titleEl.textContent = sw.activeItemTitle || (_ar ? 'جلسة تركيز نشطة' : 'Active Focus Session');
+
+      if (sw.startTimeFormatted) {
+        startBadge.style.display = 'inline-flex';
+        startBadgeText.textContent = _ar ? `بدأ الساعة: ${sw.startTimeFormatted}` : `Started at: ${sw.startTimeFormatted}`;
+      } else {
+        startBadge.style.display = 'none';
+      }
+
       statusCaption.textContent = sw.isPaused
         ? (_ar ? 'متوقف مؤقتاً · اضغط استئناف للمتابعة' : 'Paused · Click Resume to continue')
-        : (_ar ? '⏱ تسجيل الوقت مباشرة...' : '⏱ Recording time live...');
+        : (_ar ? `⏱ قيد التشغيل منذ ${sw.startTimeFormatted || 'الآن'} · اضغط إنهاء لحساب المدة تلقائياً` : `⏱ Active since ${sw.startTimeFormatted || 'now'} · Click Finish to auto-calculate duration`);
 
       mainToggleBtn.style.display = 'none';
       pauseBtn.style.display = 'inline-flex';
@@ -168,6 +183,7 @@ export function renderTodayView(container) {
       finishBtn.style.display = 'inline-flex';
     } else {
       pulseDot.className = 'pulse-indicator';
+      startBadge.style.display = 'none';
       titleEl.textContent = sw.activeItemTitle
         ? (_ar ? `جاهز: ${sw.activeItemTitle}` : `Ready: ${sw.activeItemTitle}`)
         : (_ar ? 'لا توجد جلسة نشطة' : 'No active session');
@@ -181,17 +197,23 @@ export function renderTodayView(container) {
   }
 
   /** Show the green ✓ done banner inside the stopwatch panel */
-  function showDoneBanner(title, mins) {
+  function showDoneBanner(title, mins, startFmt, endFmt) {
     const _ar = getLang() === 'ar';
     doneBanner.style.display = 'flex';
     doneTitle.textContent = _ar ? `✓ "${title}" خلصت!` : `✓ "${title}" done!`;
-    doneDetail.textContent = _ar ? `تم تسجيل ${mins} دقيقة بنجاح` : `Logged ${mins} minute${mins !== 1 ? 's' : ''} successfully`;
-    setTimeout(() => { doneBanner.style.display = 'none'; }, 6000);
+    const rangeText = (startFmt && endFmt) 
+      ? (_ar ? `من ${startFmt} إلى ${endFmt} · ` : `From ${startFmt} to ${endFmt} · `) 
+      : '';
+    doneDetail.textContent = _ar 
+      ? `${rangeText}تم حساب المدة تلقائياً: ${mins} دقيقة بنجاح` 
+      : `${rangeText}Auto-calculated duration: ${mins} minute${mins !== 1 ? 's' : ''} logged successfully`;
+    setTimeout(() => { doneBanner.style.display = 'none'; }, 8000);
   }
 
   mainToggleBtn.addEventListener('click', () => {
     store.startStopwatch('custom-session', 'Deep Work Focus Session', 'task');
-    Toast.info('⏱ Stopwatch started!');
+    const startFmt = store.state.stopwatch.startTimeFormatted;
+    Toast.info(getLang() === 'ar' ? `⏱ بدأ العداد الساعة ${startFmt}` : `⏱ Stopwatch started at ${startFmt}!`);
     updateStopwatchUI();
   });
 
@@ -208,23 +230,26 @@ export function renderTodayView(container) {
 
   finishBtn.addEventListener('click', async () => {
     const result = store.stopStopwatch();
-    const totalMins  = Math.max(1, result.elapsedMinutes);   // cumulative total today
-    const sessionMins = Math.max(1, result.sessionMinutes);  // only this session's delta
+    const sessionMins = Math.max(1, result.durationMinutes || result.sessionMinutes || 1);
     const sessionTitle = result.title || 'Focus Session';
 
     // ── Immediate visual feedback ──
     updateStopwatchUI();
-    showDoneBanner(sessionTitle, sessionMins);
+    showDoneBanner(sessionTitle, sessionMins, result.startTimeFormatted, result.endTimeFormatted);
 
     try {
       if (result.type === 'habit' && result.itemId) {
         await api.completeHabitToday(result.itemId, {
           durationMinutes: sessionMins,
           elapsedSeconds: result.elapsedSeconds,
-          totalMinutes: totalMins,
+          totalMinutes: sessionMins,
           sessionMinutes: sessionMins,
+          startTime: result.startTime,
+          endTime: result.endTime,
+          startTimeFormatted: result.startTimeFormatted,
+          endTimeFormatted: result.endTimeFormatted,
           title: sessionTitle,
-          notes: `Tracked live via Stopwatch on ${todayDate}`
+          notes: `${result.startTimeFormatted} → ${result.endTimeFormatted} (${sessionMins}m)`
         });
       } else {
         // If it's a task or general focus session:
@@ -234,7 +259,7 @@ export function renderTodayView(container) {
         );
 
         if (existingTask) {
-          const newActual = Math.max(Number(existingTask.actualMinutes) || 0, totalMins);
+          const newActual = (Number(existingTask.actualMinutes) || 0) + sessionMins;
           await api.updateTask(existingTask.id, {
             completed: true,
             status: 'completed',
@@ -244,25 +269,29 @@ export function renderTodayView(container) {
             activityName: sessionTitle,
             taskId: existingTask.id,
             durationMinutes: sessionMins,
-            notes: "Completed from Today's Focus stopwatch"
+            startTime: result.startTime,
+            endTime: result.endTime,
+            notes: `${result.startTimeFormatted} → ${result.endTimeFormatted} (${sessionMins}m)`
           });
         } else {
           const newTaskRes = await api.createTask({
             title: sessionTitle,
-            description: `Finished via Stopwatch. Tracked duration: ${totalMins} minutes.`,
+            description: `Finished via Stopwatch. Tracked duration: ${sessionMins} minutes (${result.startTimeFormatted} - ${result.endTimeFormatted}).`,
             dueDate: todayDate,
             priority: 'high',
             category: 'Deep Work',
             status: 'completed',
             completed: true,
-            completedAt: new Date().toISOString(),
-            actualMinutes: totalMins
+            completedAt: result.endTime || new Date().toISOString(),
+            actualMinutes: sessionMins
           });
           await api.logTimeSession({
             activityName: sessionTitle,
             taskId: newTaskRes?.data?.id || null,
             durationMinutes: sessionMins,
-            notes: "Completed from Today's Focus stopwatch"
+            startTime: result.startTime,
+            endTime: result.endTime,
+            notes: `${result.startTimeFormatted} → ${result.endTimeFormatted} (${sessionMins}m)`
           });
         }
       }
@@ -408,6 +437,16 @@ export function renderTodayView(container) {
         liveIndicator.className = 'live-clock-badge';
         liveIndicator.textContent = `⏱ ${formatStopwatchTime(store.state.stopwatch.elapsedSeconds)}`;
 
+        const startPill = document.createElement('span');
+        startPill.className = 'task-badge';
+        startPill.style.background = 'rgba(91, 224, 235, 0.15)';
+        startPill.style.color = 'var(--cyan)';
+        startPill.style.border = '1px solid rgba(91, 224, 235, 0.3)';
+        startPill.style.fontWeight = '700';
+        startPill.textContent = getLang() === 'ar'
+          ? `⏰ بدأ: ${store.state.stopwatch.startTimeFormatted || ''}`
+          : `⏰ Started: ${store.state.stopwatch.startTimeFormatted || ''}`;
+
         const pauseResumeBtn = document.createElement('button');
         pauseResumeBtn.className = 'btn btn-secondary btn-small';
         pauseResumeBtn.textContent = store.state.stopwatch.isPaused ? '▶ Resume' : '⏸ Pause';
@@ -423,8 +462,7 @@ export function renderTodayView(container) {
         finishHabitBtn.textContent = getLang() === 'ar' ? '⏹ إنهاء وتسجيل' : '⏹ Finish & Log';
         finishHabitBtn.addEventListener('click', async () => {
           const res = store.stopStopwatch();
-          const totalMins   = Math.max(1, res.elapsedMinutes);   // cumulative today
-          const sessionMins = Math.max(1, res.sessionMinutes);   // this session only
+          const sessionMins = Math.max(1, res.durationMinutes || res.sessionMinutes || 1);
           const _isAr2 = getLang() === 'ar';
 
           // ── Immediate visual: replace action row with ✓ done badge ──
@@ -432,21 +470,25 @@ export function renderTodayView(container) {
             <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;
               background:rgba(80,220,130,0.15);border:1px solid rgba(80,220,130,0.4);
               border-radius:20px;font-size:12px;font-weight:700;color:var(--green);">
-              ${_isAr2 ? `✓ خلصت! (${totalMins} دقيقة)` : `✓ Done! (${totalMins}m logged)`}
+              ${_isAr2 ? `✓ خلصت! (${res.startTimeFormatted} → ${res.endTimeFormatted} = ${sessionMins} دقيقة)` : `✓ Done! (${res.startTimeFormatted} → ${res.endTimeFormatted} = ${sessionMins}m)`}
             </span>`;
           card.style.background = 'rgba(80,220,130,0.06)';
           card.style.borderColor = 'rgba(80,220,130,0.35)';
           updateStopwatchUI();
-          showDoneBanner(habit.name, sessionMins);
+          showDoneBanner(habit.name, sessionMins, res.startTimeFormatted, res.endTimeFormatted);
 
           try {
             await api.completeHabitToday(habit.id, {
               durationMinutes: sessionMins,
               elapsedSeconds: res.elapsedSeconds,
-              totalMinutes: totalMins,
+              totalMinutes: sessionMins,
               sessionMinutes: sessionMins,
+              startTime: res.startTime,
+              endTime: res.endTime,
+              startTimeFormatted: res.startTimeFormatted,
+              endTimeFormatted: res.endTimeFormatted,
               title: habit.name,
-              notes: `Tracked via stopwatch on ${todayDate}`
+              notes: `${res.startTimeFormatted} → ${res.endTimeFormatted} (${sessionMins}m)`
             });
             await store.refreshAll();
             renderTodayHabits();
@@ -456,7 +498,7 @@ export function renderTodayView(container) {
           }
         });
 
-        actions.append(liveIndicator, pauseResumeBtn, finishHabitBtn);
+        actions.append(liveIndicator, startPill, pauseResumeBtn, finishHabitBtn);
       } else {
         // Not currently timing this habit
         const startBtn = document.createElement('button');
@@ -465,7 +507,8 @@ export function renderTodayView(container) {
         startBtn.title = getLang() === 'ar' ? 'شغّل العداد لهذه العادة' : 'Start live stopwatch for this habit';
         startBtn.addEventListener('click', () => {
           store.startStopwatch(habit.id, habit.name, 'habit');
-          Toast.info(`⏱ Started timing "${habit.name}"!`);
+          const startFmt = store.state.stopwatch.startTimeFormatted;
+          Toast.info(getLang() === 'ar' ? `⏱ بدأ العداد الساعة ${startFmt} لـ "${habit.name}"` : `⏱ Started timing "${habit.name}" at ${startFmt}!`);
           updateStopwatchUI();
           renderTodayHabits();
         });
@@ -534,7 +577,17 @@ export function renderTodayView(container) {
       return d === todayDate;
     }).forEach(s => {
       const name = s.activityName || s.activity_name || 'Focus Session';
-      if (!itemMap[name]) itemMap[name] = { name, minutes: 0, isDone: true };
+      let timeRange = '';
+      if (s.startTime && s.endTime) {
+        const sFmt = store.formatTimeOfDay(s.startTime);
+        const eFmt = store.formatTimeOfDay(s.endTime);
+        if (sFmt && eFmt) timeRange = `${sFmt} - ${eFmt}`;
+      }
+      if (!itemMap[name]) {
+        itemMap[name] = { name, minutes: 0, isDone: true, timeRange };
+      } else if (timeRange && !itemMap[name].timeRange) {
+        itemMap[name].timeRange = timeRange;
+      }
       const mins = Number(s.durationMinutes || s.duration_minutes) || 0;
       if (mins > 0) itemMap[name].minutes = Math.max(itemMap[name].minutes, mins);
     });
@@ -554,7 +607,7 @@ export function renderTodayView(container) {
           <div class="today-time-icon">⏱</div>
           <div>
             <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cyan);">
-              ${isAr ? 'إجمالي وقت التركيز اليوم (محسوب تلقائياً)' : 'TODAY\'S TOTAL FOCUS TIME (AUTO CALCULATED)'}
+              ${isAr ? 'إجمالي وقت التركيز اليوم (محسوب تلقائياً من أوقات البدء والانتهاء)' : 'TODAY\'S TOTAL FOCUS TIME (AUTO CALCULATED FROM START & FINISH)'}
             </div>
             <div class="today-time-digits">
               ${formattedTime} ${totalTodayMins >= 60 ? `<span style="font-size: 13px; color: var(--muted); font-weight: 600;">(${totalHours}h)</span>` : ''}
@@ -568,7 +621,7 @@ export function renderTodayView(container) {
         <div class="today-time-items-wrap">
           ${items.filter(it => it.minutes > 0).map(it => `
             <span class="task-badge" style="background: rgba(91, 224, 235, 0.12); color: var(--cyan); border: 1px solid rgba(91, 224, 235, 0.25); font-weight: 700;">
-              ✓ ${it.name} (${it.minutes}${isAr ? 'د' : 'm'})
+              ✓ ${it.name} (${it.minutes}${isAr ? 'د' : 'm'}${it.timeRange ? ` · ${it.timeRange}` : ''})
             </span>
           `).join('')}
         </div>

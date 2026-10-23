@@ -703,8 +703,9 @@ class ApiClient {
     const finalTotalMins = Math.max(1, totalMinutes || calculatedMins);
     const addedSessionMins = Math.max(1, sessionMinutes || calculatedMins);
     const habitName = goal ? goal.name : (title || 'Focus Session');
-    const nowIso = new Date().toISOString();
-    const startTime = new Date(Date.now() - addedSessionMins * 60000).toISOString();
+    const nowIso = options.endTime || new Date().toISOString();
+    const startTime = options.startTime || new Date(Date.now() - addedSessionMins * 60000).toISOString();
+    const endTime = options.endTime || nowIso;
 
     // ── 1. Mark habit day as done in weekly matrix ───────────────
     if (goal) {

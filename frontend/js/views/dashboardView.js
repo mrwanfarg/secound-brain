@@ -16,6 +16,9 @@ export function renderDashboardView(container) {
     <div class="eyebrow">${ar ? 'نظرة عامة على لوحتك' : 'YOUR OVERVIEW'}</div>
     <div class="overview-grid" id="dashboardOverviewGrid"></div>
 
+    <!-- LIVE ACTIVITY / AUTO-CALCULATED FOCUS BANNER -->
+    <div id="dashboardFocusBanner"></div>
+
     <!-- WEEKLY SUMMARY PROGRESS -->
     <section class="panel" id="dashboardWeeklyPanel">
       <div class="panel-heading">
@@ -180,6 +183,16 @@ export function renderDashboardView(container) {
     });
   });
 
+function formatStopwatchTime(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) {
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
   // RENDER DYNAMIC DATA
   function updateStats() {
     const grid = container.querySelector('#dashboardOverviewGrid');
@@ -187,13 +200,29 @@ export function renderDashboardView(container) {
     grid.innerHTML = '';
     const _ar = getLang() === 'ar';
 
-    const { tasks, projects, notes, weeklyGoals } = store.state;
+    const { tasks, projects, notes, weeklyGoals, timeSessions = [] } = store.state;
     const today = new Date().toISOString().split('T')[0];
 
     const completedCount = tasks.filter(t => t.completed).length;
     const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
     const todayCount = tasks.filter(t => t.dueDate === today && !t.completed).length;
     const overdueCount = tasks.filter(t => t.dueDate && t.dueDate < today && !t.completed).length;
+
+    // Calculate today's auto-calculated focus time
+    const itemMap = {};
+    tasks.filter(t => t.dueDate === today && Number(t.actualMinutes) > 0).forEach(t => {
+      const name = t.title || 'Task';
+      itemMap[name] = Number(t.actualMinutes) || 0;
+    });
+    timeSessions.filter(s => {
+      const d = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+      return d === today;
+    }).forEach(s => {
+      const name = s.activityName || s.activity_name || 'Focus Session';
+      const mins = Number(s.durationMinutes || s.duration_minutes) || 0;
+      itemMap[name] = Math.max(itemMap[name] || 0, mins);
+    });
+    const totalTodayMins = Object.values(itemMap).reduce((sum, m) => sum + m, 0);
 
     grid.appendChild(createStatCard({
       title: _ar ? 'المهام المنجزة' : 'Completed Tasks',
@@ -211,6 +240,16 @@ export function renderDashboardView(container) {
         : (_ar ? 'ابنِ روتينك اليومي' : 'Build your routine'),
       icon: '▦',
       onClick: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }))
+    }));
+
+    grid.appendChild(createStatCard({
+      title: _ar ? 'وقت التركيز اليوم' : "Today's Focus Time",
+      value: totalTodayMins >= 60 
+        ? `${Math.floor(totalTodayMins / 60)}${_ar ? 'س' : 'h'} ${totalTodayMins % 60}${_ar ? 'د' : 'm'}` 
+        : `${totalTodayMins} ${_ar ? 'دقيقة' : 'm'}`,
+      caption: _ar ? '⏱ محسوب تلقائياً من البدء والانتهاء' : '⏱ Auto-calculated from start & finish',
+      icon: '⏱',
+      onClick: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Today' } }))
     }));
 
     grid.appendChild(createStatCard({
@@ -247,6 +286,125 @@ export function renderDashboardView(container) {
       ? `${totalDone} / ${totalTarget} أيام هدف مكتملة`
       : `${totalDone} / ${totalTarget} target days completed`;
     container.querySelector('#dashWeeklyFill').style.width = `${percent}%`;
+
+    renderDashboardFocusBanner();
+  }
+
+  // RENDER TODAY FOCUS BANNER ON DASHBOARD (LIVE ACTIVITY OR AUTO-CALCULATED LOG)
+  function renderDashboardFocusBanner() {
+    const bannerEl = container.querySelector('#dashboardFocusBanner');
+    if (!bannerEl) return;
+    const _ar = getLang() === 'ar';
+    const sw = store.state.stopwatch;
+    const today = new Date().toISOString().split('T')[0];
+
+    // If session is active/running
+    if (sw.isRunning) {
+      bannerEl.innerHTML = `
+        <div class="panel" style="padding: 16px 20px; margin-bottom: 24px; background: linear-gradient(135deg, rgba(91, 224, 235, 0.12), rgba(155, 123, 255, 0.12)); border: 1px solid rgba(91, 224, 235, 0.35); border-radius: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="pulse-indicator ${sw.isPaused ? 'paused' : 'running'}"></span>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--cyan); text-transform: uppercase; letter-spacing: 0.5px;">
+                  ${_ar ? '⚡ جلسة تركيز قيد التشغيل الآن' : '⚡ LIVE FOCUS SESSION ACTIVE'}
+                </div>
+                <div style="font-size: 16px; font-weight: 800; color: var(--text); margin-top: 2px;">
+                  ${sw.activeItemTitle || (_ar ? 'جلسة تركيز' : 'Focus Session')}
+                </div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                  <span style="color: var(--cyan); font-weight: 700;">⏰ ${_ar ? `بدأت الساعة: ${sw.startTimeFormatted || ''}` : `Started at: ${sw.startTimeFormatted || ''}`}</span>
+                  <span>·</span>
+                  <span>${_ar ? 'المدة الحالية:' : 'Current duration:'} <strong style="color: var(--text); font-family: monospace;">${formatStopwatchTime(sw.elapsedSeconds)}</strong></span>
+                  ${sw.isPaused ? `<span style="color: var(--amber); font-weight: 700;">(${_ar ? 'متوقف مؤقتاً' : 'Paused'})</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="dashGoToLiveTodayBtn">
+              ${_ar ? 'الانتقال للتوقيت والإنهاء في تركيز اليوم →' : "Open Today's Focus & Finish →"}
+            </button>
+          </div>
+        </div>
+      `;
+      bannerEl.querySelector('#dashGoToLiveTodayBtn')?.addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Today' } }));
+      });
+      return;
+    }
+
+    // Auto-calculated summary from sessions and tasks for today
+    const tasks = store.state.tasks || [];
+    const sessions = store.state.timeSessions || [];
+
+    const itemMap = {};
+    tasks.filter(t => t.dueDate === today && Number(t.actualMinutes) > 0).forEach(t => {
+      const name = t.title || 'Task';
+      itemMap[name] = { name, minutes: Number(t.actualMinutes) || 0 };
+    });
+
+    sessions.filter(s => {
+      const d = (s.startTime || s.created_at || s.createdAt || '').slice(0, 10);
+      return d === today;
+    }).forEach(s => {
+      const name = s.activityName || s.activity_name || 'Focus Session';
+      let timeRange = '';
+      if (s.startTime && s.endTime) {
+        const sFmt = store.formatTimeOfDay(s.startTime);
+        const eFmt = store.formatTimeOfDay(s.endTime);
+        if (sFmt && eFmt) timeRange = `${sFmt} - ${eFmt}`;
+      }
+      const mins = Number(s.durationMinutes || s.duration_minutes) || 0;
+      if (!itemMap[name]) {
+        itemMap[name] = { name, minutes: mins, timeRange };
+      } else {
+        itemMap[name].minutes = Math.max(itemMap[name].minutes, mins);
+        if (timeRange && !itemMap[name].timeRange) itemMap[name].timeRange = timeRange;
+      }
+    });
+
+    const items = Object.values(itemMap);
+    const totalTodayMins = items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+    const totalHours = (totalTodayMins / 60).toFixed(1);
+
+    const formattedTime = totalTodayMins >= 60 
+      ? (_ar ? `${Math.floor(totalTodayMins/60)} ساعة و ${totalTodayMins%60} دقيقة` : `${Math.floor(totalTodayMins/60)}h ${totalTodayMins%60}m`)
+      : (_ar ? `${totalTodayMins} دقيقة` : `${totalTodayMins} mins`);
+
+    bannerEl.innerHTML = `
+      <div class="today-time-summary-banner" style="margin-bottom: 24px;">
+        <div class="today-time-left">
+          <div class="today-time-icon">⏱</div>
+          <div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--cyan);">
+              ${_ar ? 'إجمالي وقت التركيز اليوم (محسوب تلقائياً من أوقات البدء والانتهاء)' : 'TODAY\'S TOTAL FOCUS TIME (AUTO CALCULATED FROM START & FINISH)'}
+            </div>
+            <div class="today-time-digits">
+              ${formattedTime} ${totalTodayMins >= 60 ? `<span style="font-size: 13px; color: var(--muted); font-weight: 600;">(${totalHours}h)</span>` : ''}
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">
+              ${items.length > 0
+                ? (_ar ? `${items.length} جلسات تركيز مكتملة اليوم` : `${items.length} focus sessions logged today`)
+                : (_ar ? 'اضغط بدء التوقيت في تركيز اليوم أو الأسبوعي لتسجيل الوقت تلقائياً' : 'Start timing any habit or task in Today\'s Focus to auto-calculate time')}
+            </div>
+          </div>
+        </div>
+
+        <div class="today-time-items-wrap">
+          ${items.filter(it => it.minutes > 0).map(it => `
+            <span class="task-badge" style="background: rgba(91, 224, 235, 0.12); color: var(--cyan); border: 1px solid rgba(91, 224, 235, 0.25); font-weight: 700;">
+              ✓ ${it.name} (${it.minutes}${_ar ? 'د' : 'm'}${it.timeRange ? ` · ${it.timeRange}` : ''})
+            </span>
+          `).join('')}
+          <button class="btn btn-secondary btn-small" id="dashStartSessionShortcutBtn" style="font-size: 11px; padding: 4px 10px;">
+            ${_ar ? '⚡ تركيز اليوم →' : "⚡ Today's Focus →"}
+          </button>
+        </div>
+      </div>
+    `;
+
+    bannerEl.querySelector('#dashStartSessionShortcutBtn')?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Today' } }));
+    });
   }
 
   function renderTasksList() {
@@ -345,4 +503,8 @@ export function renderDashboardView(container) {
     renderNotesList();
   });
   store.subscribe('weeklyGoals', () => updateStats());
+  store.subscribe('timeSessions', () => updateStats());
+  store.subscribe('stopwatch', () => {
+    renderDashboardFocusBanner();
+  });
 }

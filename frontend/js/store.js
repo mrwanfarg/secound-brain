@@ -34,6 +34,11 @@ class Store {
         isRunning: false,
         isPaused: false,
         elapsedSeconds: 0,
+        startTimestamp: null,
+        startTimeFormatted: '',
+        pausedDuration: 0,
+        pauseTimestamp: null,
+        sessionDate: null,
         activeItemId: null,
         activeItemTitle: '',
         activeItemType: 'habit', // 'habit' | 'task'
@@ -172,6 +177,23 @@ class Store {
 
   static get SW_KEY() { return 'secondBrain_stopwatch_state'; }
 
+  /** Helper to format time of day (e.g. 4:30 PM or 04:30 م) */
+  formatTimeOfDay(dateOrTimestamp) {
+    if (!dateOrTimestamp) return '';
+    try {
+      const d = new Date(dateOrTimestamp);
+      if (isNaN(d.getTime())) return '';
+      const isAr = localStorage.getItem('secondBrain_lang') === 'ar';
+      return d.toLocaleTimeString(isAr ? 'ar-EG' : 'en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return '';
+    }
+  }
+
   /** Get total seconds already logged today for an item (habit or task) */
   getTodayLoggedSeconds(itemId, title) {
     const localD = new Date();
@@ -212,24 +234,24 @@ class Store {
     localStorage.setItem(Store.SW_KEY, JSON.stringify({
       isRunning: true,
       isPaused: sw.isPaused,
-      elapsedSeconds: sw.elapsedSeconds,
-      elapsedAtStart: sw._elapsedAtStart ?? 0,
-      startTimestamp: sw._startTimestamp ?? null,
-      initialLoggedSeconds: sw._initialLoggedSeconds ?? 0,
-      sessionDate: sw._sessionDate || todayStr,
+      startTimestamp: sw.startTimestamp,
+      startTimeFormatted: sw.startTimeFormatted,
+      pausedDuration: sw.pausedDuration || 0,
+      pauseTimestamp: sw.pauseTimestamp || null,
+      sessionDate: sw.sessionDate || todayStr,
       activeItemId: sw.activeItemId,
       activeItemTitle: sw.activeItemTitle,
       activeItemType: sw.activeItemType
     }));
   }
 
-  /** Called once on app init – restores a running/paused stopwatch */
+  /** Called once on app init – restores a running/paused stopwatch idempotently */
   _restoreStopwatchFromStorage() {
     try {
       const raw = localStorage.getItem(Store.SW_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
-      if (!saved.isRunning) return;
+      if (!saved.isRunning || !saved.startTimestamp) return;
 
       const todayStr = new Date().toISOString().split('T')[0];
       // If stored session was from a previous day, clean it up
@@ -238,16 +260,27 @@ class Store {
         return;
       }
 
-      // Recalculate total elapsed (adds time that passed while page was closed)
-      let elapsedSeconds = saved.elapsedAtStart || saved.elapsedSeconds || 0;
-      if (!saved.isPaused && saved.startTimestamp) {
-        elapsedSeconds += Math.floor((Date.now() - saved.startTimestamp) / 1000);
+      const now = Date.now();
+      const startTimestamp = saved.startTimestamp;
+      const startTimeFormatted = saved.startTimeFormatted || this.formatTimeOfDay(startTimestamp);
+      let pausedDuration = saved.pausedDuration || 0;
+      let pauseTimestamp = saved.pauseTimestamp || null;
+
+      // Calculate elapsed strictly from real clock time — never increments artificially on refresh!
+      let elapsedSeconds;
+      if (saved.isPaused) {
+        const refTime = pauseTimestamp || now;
+        elapsedSeconds = Math.max(0, Math.floor((refTime - startTimestamp - pausedDuration) / 1000));
+      } else {
+        elapsedSeconds = Math.max(0, Math.floor((now - startTimestamp - pausedDuration) / 1000));
       }
 
       // Re-create the tick interval
       const intervalId = setInterval(() => {
-        if (this.state.stopwatch.isRunning && !this.state.stopwatch.isPaused) {
-          this.state.stopwatch.elapsedSeconds++;
+        const current = this.state.stopwatch;
+        if (current.isRunning && !current.isPaused) {
+          const currentElapsed = Math.max(0, Math.floor((Date.now() - current.startTimestamp - (current.pausedDuration || 0)) / 1000));
+          current.elapsedSeconds = currentElapsed;
           this._saveStopwatchToStorage();
           this.notify('stopwatch');
         }
@@ -255,12 +288,13 @@ class Store {
 
       this.state.stopwatch = {
         isRunning: true,
-        isPaused: saved.isPaused || false,
+        isPaused: Boolean(saved.isPaused),
         elapsedSeconds,
-        _initialLoggedSeconds: saved.initialLoggedSeconds || 0,
-        _elapsedAtStart: saved.isPaused ? elapsedSeconds : (saved.elapsedAtStart || 0),
-        _startTimestamp: saved.isPaused ? null : saved.startTimestamp,
-        _sessionDate: saved.sessionDate || todayStr,
+        startTimestamp,
+        startTimeFormatted,
+        pausedDuration,
+        pauseTimestamp,
+        sessionDate: saved.sessionDate || todayStr,
         activeItemId: saved.activeItemId,
         activeItemTitle: saved.activeItemTitle,
         activeItemType: saved.activeItemType || 'habit',
@@ -281,13 +315,13 @@ class Store {
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
-    // If starting on the same item on the same day, start from already-logged seconds!
-    const alreadyLoggedSeconds = this.getTodayLoggedSeconds(itemId, title);
     const startTimestamp = Date.now();
+    const startTimeFormatted = this.formatTimeOfDay(startTimestamp);
 
     const intervalId = setInterval(() => {
-      if (this.state.stopwatch.isRunning && !this.state.stopwatch.isPaused) {
-        this.state.stopwatch.elapsedSeconds++;
+      const sw = this.state.stopwatch;
+      if (sw.isRunning && !sw.isPaused) {
+        sw.elapsedSeconds = Math.max(0, Math.floor((Date.now() - sw.startTimestamp - (sw.pausedDuration || 0)) / 1000));
         this._saveStopwatchToStorage();
         this.notify('stopwatch');
       }
@@ -296,11 +330,12 @@ class Store {
     this.state.stopwatch = {
       isRunning: true,
       isPaused: false,
-      elapsedSeconds: alreadyLoggedSeconds,
-      _initialLoggedSeconds: alreadyLoggedSeconds,
-      _elapsedAtStart: alreadyLoggedSeconds,
-      _startTimestamp: startTimestamp,
-      _sessionDate: todayStr,
+      elapsedSeconds: 0,
+      startTimestamp,
+      startTimeFormatted,
+      pausedDuration: 0,
+      pauseTimestamp: null,
+      sessionDate: todayStr,
       activeItemId: itemId,
       activeItemTitle: title,
       activeItemType: type,
@@ -311,26 +346,27 @@ class Store {
   }
 
   pauseStopwatch() {
-    if (!this.state.stopwatch.isRunning || this.state.stopwatch.isPaused) return;
+    const sw = this.state.stopwatch;
+    if (!sw.isRunning || sw.isPaused) return;
     this.state.stopwatch = {
-      ...this.state.stopwatch,
+      ...sw,
       isPaused: true,
-      // Freeze elapsed count so we can resume from here
-      _elapsedAtStart: this.state.stopwatch.elapsedSeconds,
-      _startTimestamp: null
+      pauseTimestamp: Date.now()
     };
     this._saveStopwatchToStorage();
     this.notify('stopwatch');
   }
 
   resumeStopwatch() {
-    if (!this.state.stopwatch.isRunning || !this.state.stopwatch.isPaused) return;
-    const startTimestamp = Date.now();
+    const sw = this.state.stopwatch;
+    if (!sw.isRunning || !sw.isPaused) return;
+    const now = Date.now();
+    const addedPause = sw.pauseTimestamp ? (now - sw.pauseTimestamp) : 0;
     this.state.stopwatch = {
-      ...this.state.stopwatch,
+      ...sw,
       isPaused: false,
-      _startTimestamp: startTimestamp,
-      _elapsedAtStart: this.state.stopwatch.elapsedSeconds
+      pausedDuration: (sw.pausedDuration || 0) + addedPause,
+      pauseTimestamp: null
     };
     this._saveStopwatchToStorage();
     this.notify('stopwatch');
@@ -340,20 +376,35 @@ class Store {
     if (this.state.stopwatch.intervalId) {
       clearInterval(this.state.stopwatch.intervalId);
     }
-    const finalSeconds = this.state.stopwatch.elapsedSeconds;
-    const initialSeconds = this.state.stopwatch._initialLoggedSeconds || 0;
-    const finalItemId = this.state.stopwatch.activeItemId;
-    const finalTitle = this.state.stopwatch.activeItemTitle;
-    const finalType = this.state.stopwatch.activeItemType;
+    const sw = this.state.stopwatch;
+    const endTimestamp = Date.now();
+    const startTimestamp = sw.startTimestamp || (endTimestamp - (sw.elapsedSeconds * 1000));
+    const pausedDuration = sw.pausedDuration || 0;
+
+    // Accurate duration between Start and Finish
+    const totalElapsedMs = Math.max(0, endTimestamp - startTimestamp - pausedDuration);
+    const finalSeconds = Math.max(0, Math.floor(totalElapsedMs / 1000));
+    // Exact auto-calculated duration in minutes (e.g. 4:30 to 5:30 = 60 mins)
+    const durationMinutes = Math.max(1, Math.round(finalSeconds / 60));
+
+    const startTimeFormatted = sw.startTimeFormatted || this.formatTimeOfDay(startTimestamp);
+    const endTimeFormatted = this.formatTimeOfDay(endTimestamp);
+    const startTimeIso = new Date(startTimestamp).toISOString();
+    const endTimeIso = new Date(endTimestamp).toISOString();
+
+    const finalItemId = sw.activeItemId;
+    const finalTitle = sw.activeItemTitle;
+    const finalType = sw.activeItemType;
 
     this.state.stopwatch = {
       isRunning: false,
       isPaused: false,
       elapsedSeconds: 0,
-      _initialLoggedSeconds: 0,
-      _elapsedAtStart: 0,
-      _startTimestamp: null,
-      _sessionDate: null,
+      startTimestamp: null,
+      startTimeFormatted: '',
+      pausedDuration: 0,
+      pauseTimestamp: null,
+      sessionDate: null,
       activeItemId: null,
       activeItemTitle: '',
       activeItemType: 'habit',
@@ -362,15 +413,15 @@ class Store {
     localStorage.removeItem(Store.SW_KEY);
     this.notify('stopwatch');
 
-    const totalMinutes = finalSeconds > 0 ? Math.max(1, Math.ceil(finalSeconds / 60)) : 0;
-    const addedDelta = finalSeconds - initialSeconds;
-    const addedMinutes = addedDelta > 0 ? Math.max(1, Math.ceil(addedDelta / 60)) : (totalMinutes || 1);
-
     return {
       elapsedSeconds: finalSeconds,
-      elapsedMinutes: totalMinutes,
-      sessionMinutes: addedMinutes,
-      initialMinutes: Math.round(initialSeconds / 60),
+      elapsedMinutes: durationMinutes,
+      durationMinutes: durationMinutes,
+      sessionMinutes: durationMinutes,
+      startTime: startTimeIso,
+      endTime: endTimeIso,
+      startTimeFormatted,
+      endTimeFormatted,
       itemId: finalItemId,
       title: finalTitle,
       type: finalType

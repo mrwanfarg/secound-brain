@@ -1101,19 +1101,22 @@ app.get('/api/timers', (req, res) => {
 });
 
 app.post('/api/timers', (req, res) => {
-  const { activityName, taskId, durationMinutes, notes = '' } = req.body;
+  const { activityName, taskId, durationMinutes, notes = '', startTime: reqStartTime, endTime: reqEndTime } = req.body;
   if (!activityName || !durationMinutes) {
     return res.status(400).json({ success: false, message: 'Activity name and duration are required' });
   }
 
   const duration = Math.max(1, parseInt(durationMinutes, 10));
+  const nowIso = reqEndTime || new Date().toISOString();
+  const startTime = reqStartTime || new Date(Date.now() - duration * 60000).toISOString();
+
   const newSession = db.create('timeSessions', {
     activityName: activityName.trim(),
     taskId: taskId || null,
     durationMinutes: duration,
     notes: notes.trim(),
-    startTime: new Date(Date.now() - duration * 60000).toISOString(),
-    endTime: new Date().toISOString()
+    startTime: startTime,
+    endTime: nowIso
   });
 
   if (taskId) {
