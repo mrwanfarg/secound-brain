@@ -161,15 +161,15 @@
       "name": "Morning Workout & Mobility",
       "target": 5,
       "days": [
-        true,
-        true,
-        true,
-        true,
         false,
         false,
-        true
+        false,
+        false,
+        false,
+        false,
+        false
       ],
-      "weekKey": "2026-10-10",
+      "weekKey": "2026-10-24",
       "createdAt": "2026-10-16T15:20:39.517Z"
     },
     {
@@ -177,15 +177,15 @@
       "name": "Deep Work Focus Sessions (2hr+)",
       "target": 5,
       "days": [
-        true,
-        true,
-        true,
+        false,
+        false,
+        false,
         false,
         false,
         false,
         false
       ],
-      "weekKey": "2026-10-10",
+      "weekKey": "2026-10-24",
       "createdAt": "2026-10-16T15:20:39.517Z"
     },
     {
@@ -193,15 +193,15 @@
       "name": "Read 20 Pages Non-fiction",
       "target": 6,
       "days": [
-        true,
-        true,
-        true,
-        true,
-        true,
+        false,
+        false,
+        false,
+        false,
+        false,
         false,
         false
       ],
-      "weekKey": "2026-10-10",
+      "weekKey": "2026-10-24",
       "createdAt": "2026-10-16T15:20:39.517Z"
     },
     {
@@ -209,15 +209,15 @@
       "name": "Review Daily Intentions & Retrospective",
       "target": 7,
       "days": [
-        true,
-        true,
-        true,
-        true,
+        false,
+        false,
+        false,
+        false,
         false,
         false,
         false
       ],
-      "weekKey": "2026-10-10",
+      "weekKey": "2026-10-24",
       "createdAt": "2026-10-16T15:20:39.517Z"
     }
   ],

@@ -147,6 +147,9 @@ export function renderWeeklyView(container) {
           <span style="width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);"></span>
           ${ar ? 'الجدول يتجدد تلقائياً كل أسبوع' : 'Auto-renews every Saturday'}
         </span>
+        <button class="btn btn-secondary btn-small" id="restoreOldScheduleBtn" title="${ar ? 'استرجاع عادات الجدول القديم بالكامل وتحديث الجدول فوراً' : 'Restore the original habits schedule and refresh matrix'}">
+          ${ar ? '↺ استرجاع الجدول القديم' : '↺ Restore Old Schedule'}
+        </button>
         <button class="btn btn-secondary btn-small" id="renewWeekBtn" title="${ar ? 'تصفير علامات الأسبوع لبدء أسبوع جديد مع الحفاظ على كل عاداتك وجدولك' : 'Start a fresh week, resetting day check marks while keeping all habits in your schedule'}">
           ${ar ? '↺ تجديد الأسبوع الآن' : '↺ Renew Week Now'}
         </button>
@@ -247,6 +250,35 @@ export function renderWeeklyView(container) {
     window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Today' } }));
   });
 
+  // Restore Old Schedule Handler
+  const doRestoreSchedule = async () => {
+    Modal.confirm({
+      title: ar ? 'استرجاع الجدول القديم والعادات' : 'Restore Old Schedule & Habits',
+      message: ar 
+        ? 'هل تريد استرجاع عادات الجدول القديم كاملة؟ سيتم تنشيط عاداتك السابقة في الجدول فوراً وتثبيتها للأسبوع الحالي!' 
+        : 'Restore your full habits schedule? All previous habits will be activated immediately for the current week!',
+      confirmText: ar ? 'نعم، استرجع الجدول' : 'Yes, Restore Schedule',
+      onConfirm: async () => {
+        try {
+          const res = await api.restoreStarterSchedule();
+          if (res && Array.isArray(res.data)) {
+            store.setState({ weeklyGoals: res.data });
+          }
+          renderMatrix();
+          Toast.success(ar ? '✓ تم استرجاع الجدول القديم بنجاح وتحديث العادات! ⚡' : '✓ Old schedule restored successfully! ⚡');
+          await store.refreshAll();
+        } catch (err) {
+          Toast.error(err.message || (ar ? 'تعذّر استرجاع الجدول' : 'Could not restore schedule'));
+        }
+      }
+    });
+  };
+
+  const restoreBtn = container.querySelector('#restoreOldScheduleBtn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', doRestoreSchedule);
+  }
+
   // Manual Renew Week Button
   const renewBtn = container.querySelector('#renewWeekBtn');
   if (renewBtn) {
@@ -301,11 +333,23 @@ export function renderWeeklyView(container) {
     if (goals.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="10" style="padding: 28px; color: var(--muted); font-style: italic;">
-            ${ar ? 'لا توجد عادات في الجدول الأسبوعي بعد. استخدم النموذج أدناه لإضافة أول عادة أو روتين لجدولك.' : 'No weekly habits defined yet. Use the form below to add your first habit or routine to your schedule.'}
+          <td colspan="10" style="padding: 36px 16px; text-align: center; color: var(--muted);">
+            <div style="font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--text);">
+              ${ar ? 'الجدول الأسبوعي فارغ حالياً' : 'Your weekly schedule is empty'}
+            </div>
+            <div style="font-size: 12px; margin-bottom: 16px; color: var(--muted);">
+              ${ar ? 'اضغط أدناه لاسترجاع عاداتك وجدولك السابق فوراً، أو استخدم النموذج بالأسفل لإضافة عادة جديدة.' : 'Click below to restore your habits schedule immediately, or use the form below to add a new habit.'}
+            </div>
+            <button class="btn btn-primary btn-small" id="emptyTableRestoreBtn" style="margin: 0 auto; display: inline-flex; align-items: center; gap: 6px;">
+              ${ar ? '↺ استرجاع الجدول القديم الآن' : '↺ Restore Old Schedule Now'}
+            </button>
           </td>
         </tr>
       `;
+      const emptyRestore = tbody.querySelector('#emptyTableRestoreBtn');
+      if (emptyRestore) {
+        emptyRestore.addEventListener('click', doRestoreSchedule);
+      }
     } else {
       goals.forEach(goal => {
         const days = Array.isArray(goal.days) ? goal.days : [false, false, false, false, false, false, false];
@@ -468,42 +512,57 @@ export function renderWeeklyView(container) {
 
     // Overall Progress
     const overallPct = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
-    container.querySelector('#weeklyPageOverallNumber').textContent = `${overallPct}%`;
-    container.querySelector('#weeklyPageOverallCount').textContent = ar
+    const numEl = container.querySelector('#weeklyPageOverallNumber');
+    const countEl = container.querySelector('#weeklyPageOverallCount');
+    const fillEl = container.querySelector('#weeklyPageOverallFill');
+    if (numEl) numEl.textContent = `${overallPct}%`;
+    if (countEl) countEl.textContent = ar
       ? `${totalCompleted} / ${totalTarget} أيام هدف مكتملة`
       : `${totalCompleted} / ${totalTarget} target days completed`;
-    container.querySelector('#weeklyPageOverallFill').style.width = `${overallPct}%`;
+    if (fillEl) fillEl.style.width = `${overallPct}%`;
   }
 
   // Form submit
   const form = container.querySelector('#weeklyNewHabitForm');
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const nameInput = container.querySelector('#weeklyHabitName');
-    const target = Number(targetInput.value);
-    const name = nameInput.value.trim();
+  if (form) {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const nameInput = container.querySelector('#weeklyHabitName');
+      const targetInput = container.querySelector('#weeklyHabitTarget');
+      const target = Number(targetInput ? targetInput.value : 5);
+      const name = nameInput ? nameInput.value.trim() : '';
 
-    if (!name || target < 1 || target > 7) {
-      Toast.error(ar ? 'أدخل اسم عادة صحيحًا وهدفًا من 1 إلى 7' : 'Please enter a valid habit name and target (1-7)');
-      return;
-    }
+      if (!name || target < 1 || target > 7) {
+        Toast.error(ar ? 'أدخل اسم عادة صحيحًا وهدفًا من 1 إلى 7' : 'Please enter a valid habit name and target (1-7)');
+        return;
+      }
 
-    try {
-      await api.createWeeklyGoal({
-        name,
-        target,
-        scheduledDays: selectedDays.length > 0 ? selectedDays : [0, 1, 2, 3, 4, 5, 6]
-      });
-      nameInput.value = '';
-      targetInput.value = '5';
-      selectedDays = [0, 1, 2, 3, 4, 5, 6];
-      pillsContainer.querySelectorAll('.day-chip').forEach(c => c.classList.add('active'));
-      Toast.success(ar ? 'تم تسجيل العادة وإضافتها للجدول الأسبوعي بنجاح! ⚡' : 'Weekly habit registered and added to schedule! ⚡');
-      await store.refreshAll();
-    } catch {
-      Toast.error(ar ? 'تعذّر إنشاء العادة' : 'Failed to create weekly habit');
-    }
-  });
+      try {
+        const createdRes = await api.createWeeklyGoal({
+          name,
+          target,
+          scheduledDays: selectedDays.length > 0 ? [...selectedDays] : [0, 1, 2, 3, 4, 5, 6]
+        });
+
+        // Optimistically add to store so the table renders immediately
+        if (createdRes && createdRes.data) {
+          const cur = store.state.weeklyGoals || [];
+          store.setState({ weeklyGoals: [...cur, createdRes.data] });
+        }
+
+        if (nameInput) nameInput.value = '';
+        if (targetInput) targetInput.value = '5';
+        selectedDays = [0, 1, 2, 3, 4, 5, 6];
+        pillsContainer.querySelectorAll('.day-chip').forEach(c => c.classList.add('active'));
+        Toast.success(ar ? '✓ تم تسجيل العادة وإضافتها للجدول الأسبوعي بنجاح! ⚡' : '✓ Weekly habit registered and added to schedule! ⚡');
+
+        renderMatrix();
+        await store.refreshAll();
+      } catch (err) {
+        Toast.error(ar ? `تعذّر إنشاء العادة: ${err.message || ''}` : `Failed to create weekly habit: ${err.message || ''}`);
+      }
+    });
+  }
 
   renderMatrix();
   store.subscribe('weeklyGoals', () => renderMatrix());

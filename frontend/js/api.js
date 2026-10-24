@@ -613,9 +613,9 @@ class ApiClient {
     // 4. If still empty, try Express REST API backend if running
     if (goals.length === 0) {
       try {
-        const backendUrl = config.customApiUrl || 'http://localhost:5001';
-        const res = await fetch(`${backendUrl}/api/weekly`, { signal: AbortSignal.timeout(1500) });
-        if (res.ok) {
+        const backendUrl = getBackendUrl();
+        const res = await safeFetch(`${backendUrl}/api/weekly`, {}, 1500);
+        if (res && res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data) && json.data.length > 0) {
             goals = json.data;
@@ -626,7 +626,18 @@ class ApiClient {
       } catch (_) {}
     }
 
-    // 5. Automatic Week Rollover Check (Runs every Saturday):
+    // 5. Resilient Starter Fallback: If still empty, initialize with STARTER_WEEKLY_GOALS so schedule is never lost
+    if (goals.length === 0) {
+      goals = JSON.parse(JSON.stringify(STARTER_WEEKLY_GOALS));
+      goals.forEach(g => {
+        g.weekKey = currentWeekKey;
+        g.days = [false, false, false, false, false, false, false];
+      });
+      localStorage.setItem(key, JSON.stringify(goals));
+      localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
+    }
+
+    // 6. Automatic Week Rollover Check (Runs every Saturday):
     // Preserves all habits in schedule, archives past week progress, and renews days to unchecked
     let modified = false;
     goals.forEach(goal => {
@@ -764,13 +775,12 @@ class ApiClient {
     localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(raw));
 
     try {
-      const backendUrl = config.customApiUrl || 'http://localhost:5001';
-      fetch(`${backendUrl}/api/weekly`, {
+      const backendUrl = getBackendUrl();
+      safeFetch(`${backendUrl}/api/weekly`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newGoal),
-        signal: AbortSignal.timeout(1500)
-      }).catch(() => {});
+        body: JSON.stringify(newGoal)
+      }, 1500);
     } catch (_) {}
 
     return { success: true, data: newGoal };
@@ -825,13 +835,12 @@ class ApiClient {
     }
 
     try {
-      const backendUrl = config.customApiUrl || 'http://localhost:5001';
-      fetch(`${backendUrl}/api/weekly/${id}`, {
+      const backendUrl = getBackendUrl();
+      safeFetch(`${backendUrl}/api/weekly/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(raw[idx]),
-        signal: AbortSignal.timeout(1500)
-      }).catch(() => {});
+        body: JSON.stringify(raw[idx])
+      }, 1500);
     } catch (_) {}
 
     return { success: true, data: raw[idx] };
@@ -864,17 +873,75 @@ class ApiClient {
     }
 
     try {
-      const backendUrl = config.customApiUrl || 'http://localhost:5001';
-      fetch(`${backendUrl}/api/weekly/reset-week`, {
+      const backendUrl = getBackendUrl();
+      safeFetch(`${backendUrl}/api/weekly/reset-week`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(1500)
-      }).catch(() => {});
+        headers: { 'Content-Type': 'application/json' }
+      }, 1500);
     } catch (_) {}
 
     return { success: true, data: goals, weekKey: currentWeekKey };
   }
 
+  /**
+   * Dedicated One-Click Restore of the full habit schedule
+   * Pulls from backend /api/weekly or STARTER_WEEKLY_GOALS and resets week checkpoints
+   */
+  async restoreStarterSchedule() {
+    const currentWeekKey = getSaturdayWeekKey();
+    const key = getUserKey('weekly');
+    let baseGoals = [];
+
+    // Try fetching existing schedule from backend first
+    try {
+      const backendUrl = getBackendUrl();
+      const res = await safeFetch(`${backendUrl}/api/weekly`, {}, 1500);
+      if (res && res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data) && json.data.length > 0) {
+          baseGoals = json.data;
+        }
+      }
+    } catch (_) {}
+
+    // If still empty, use curated STARTER_WEEKLY_GOALS
+    if (baseGoals.length === 0) {
+      baseGoals = JSON.parse(JSON.stringify(STARTER_WEEKLY_GOALS));
+    }
+
+    const restoredGoals = baseGoals.map((g, idx) => ({
+      id: g.id || `goal-${Date.now()}-${idx}`,
+      name: g.name,
+      target: Number(g.target) || 5,
+      days: [false, false, false, false, false, false, false],
+      scheduledDays: Array.isArray(g.scheduledDays) && g.scheduledDays.length > 0
+        ? g.scheduledDays
+        : [0, 1, 2, 3, 4, 5, 6],
+      weekKey: currentWeekKey,
+      createdAt: g.createdAt || new Date().toISOString()
+    }));
+
+    localStorage.setItem(key, JSON.stringify(restoredGoals));
+    localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(restoredGoals));
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      for (const g of restoredGoals) {
+        supabase.from('weekly_goals').upsert({
+          id: g.id,
+          user_id: user.id,
+          name: g.name,
+          target: g.target,
+          days: g.days,
+          scheduled_days: g.scheduledDays,
+          week_key: currentWeekKey
+        }).catch(() => {});
+      }
+    }
+
+    return { success: true, data: restoredGoals };
+  }
 
   async toggleWeeklyGoalDay(id, dayIndex, status) {
     const key = getUserKey('weekly');
@@ -1099,11 +1166,10 @@ class ApiClient {
     localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(raw));
 
     try {
-      const backendUrl = config.customApiUrl || 'http://localhost:5001';
-      fetch(`${backendUrl}/api/weekly/${id}`, {
-        method: 'DELETE',
-        signal: AbortSignal.timeout(1500)
-      }).catch(() => {});
+      const backendUrl = getBackendUrl();
+      safeFetch(`${backendUrl}/api/weekly/${id}`, {
+        method: 'DELETE'
+      }, 1500);
     } catch (_) {}
 
     return { success: true, message: 'Habit deleted successfully' };
