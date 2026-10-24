@@ -410,7 +410,7 @@ class ApiClient {
           completed: nextCompleted,
           status: raw[idx].status,
           completed_at: raw[idx].completedAt
-        }).eq('id', id).catch(() => {});
+        }).eq('id', id).then(() => {}, () => {});
       }
 
       return { success: true, data: raw[idx] };
@@ -422,7 +422,7 @@ class ApiClient {
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('tasks').delete().eq('id', id).catch(() => {});
+      supabase.from('tasks').delete().eq('id', id).then(() => {}, () => {});
     }
 
     const key = getUserKey('tasks');
@@ -528,7 +528,7 @@ class ApiClient {
           progress: updates.progress,
           status: updates.status,
           color: updates.color
-        }).eq('id', id).catch(() => {});
+        }).eq('id', id).then(() => {}, () => {});
       }
 
       return { success: true, data: raw[idx] };
@@ -540,7 +540,7 @@ class ApiClient {
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('projects').delete().eq('id', id).catch(() => {});
+      supabase.from('projects').delete().eq('id', id).then(() => {}, () => {});
     }
 
     const key = getUserKey('projects');
@@ -573,6 +573,14 @@ class ApiClient {
             weekKey: g.week_key,
             createdAt: g.created_at
           }));
+          // Merge any local-only habits (e.g. cloud insert failed) so nothing disappears
+          try {
+            const localGoals = JSON.parse(localStorage.getItem(key) || '[]');
+            const cloudIds = new Set(goals.map(g => g.id));
+            localGoals.forEach(lg => {
+              if (lg && lg.id && !cloudIds.has(lg.id)) goals.push(lg);
+            });
+          } catch (_) {}
           localStorage.setItem(key, JSON.stringify(goals));
           localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
         }
@@ -654,7 +662,7 @@ class ApiClient {
       localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
       if (supabase && user?.isCloud) {
         goals.forEach(g => {
-          supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).catch(() => {});
+          supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).then(() => {}, () => {});
         });
       }
     }
@@ -868,7 +876,7 @@ class ApiClient {
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
       goals.forEach(g => {
-        supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).catch(() => {});
+        supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).then(() => {}, () => {});
       });
     }
 
@@ -910,7 +918,7 @@ class ApiClient {
     }
 
     const restoredGoals = baseGoals.map((g, idx) => ({
-      id: g.id || `goal-${Date.now()}-${idx}`,
+      id: `goal-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
       name: g.name,
       target: Number(g.target) || 5,
       days: [false, false, false, false, false, false, false],
@@ -936,7 +944,7 @@ class ApiClient {
           days: g.days,
           scheduled_days: g.scheduledDays,
           week_key: currentWeekKey
-        }).catch(() => {});
+        }).then(() => {}, () => {});
       }
     }
 
@@ -959,7 +967,7 @@ class ApiClient {
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).catch(() => {});
+      supabase.from('weekly_goals').update({ days: goal.days }).eq('id', id).then(() => {}, () => {});
     }
 
     return { success: true, data: goal };
@@ -1156,7 +1164,7 @@ class ApiClient {
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('weekly_goals').delete().eq('id', id).catch(() => {});
+      supabase.from('weekly_goals').delete().eq('id', id).then(() => {}, () => {});
     }
 
     const key = getUserKey('weekly');
@@ -1215,7 +1223,7 @@ class ApiClient {
         content: noteData.content || '',
         tags: noteData.tags || [],
         pinned: Boolean(noteData.pinned)
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
 
     const key = getUserKey('notes');
@@ -1242,7 +1250,7 @@ class ApiClient {
       const supabase = getSupabase();
       const user = auth.getCurrentUser();
       if (supabase && user?.isCloud) {
-        supabase.from('notes').update(updates).eq('id', id).catch(() => {});
+        supabase.from('notes').update(updates).eq('id', id).then(() => {}, () => {});
       }
 
       return { success: true, data: raw[idx] };
@@ -1254,7 +1262,7 @@ class ApiClient {
     const supabase = getSupabase();
     const user = auth.getCurrentUser();
     if (supabase && user?.isCloud) {
-      supabase.from('notes').delete().eq('id', id).catch(() => {});
+      supabase.from('notes').delete().eq('id', id).then(() => {}, () => {});
     }
 
     const key = getUserKey('notes');
@@ -1435,7 +1443,7 @@ class ApiClient {
         user_id: user.id,
         date: targetDate,
         text
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
 
     return { success: true, date: targetDate, data: { text, date: targetDate } };
