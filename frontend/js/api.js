@@ -39,7 +39,69 @@ function getUserKey(entity) {
   return `secondBrain_${userId}_${entity}`;
 }
 
+function getBackendUrl() {
+  if (config.customApiUrl) return config.customApiUrl;
+  if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http')) {
+    return window.location.origin;
+  }
+  return 'http://localhost:3000';
+}
+
+async function safeFetch(url, options = {}, timeoutMs = 2000) {
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timeoutId = null;
+    if (controller) {
+      timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    }
+    const res = await fetch(url, {
+      ...options,
+      signal: controller ? controller.signal : undefined
+    });
+    if (timeoutId) clearTimeout(timeoutId);
+    return res;
+  } catch (_) {
+    return null;
+  }
+}
+
+export const STARTER_WEEKLY_GOALS = [
+  {
+    id: 'goal-1',
+    name: 'Morning Workout & Mobility',
+    target: 5,
+    days: [false, false, false, false, false, false, false],
+    scheduledDays: [0, 1, 2, 3, 4, 5, 6],
+    createdAt: '2026-10-16T15:20:39.517Z'
+  },
+  {
+    id: 'goal-2',
+    name: 'Deep Work Focus Sessions (2hr+)',
+    target: 5,
+    days: [false, false, false, false, false, false, false],
+    scheduledDays: [0, 1, 2, 3, 4],
+    createdAt: '2026-10-16T15:20:39.517Z'
+  },
+  {
+    id: 'goal-3',
+    name: 'Read 20 Pages Non-fiction',
+    target: 6,
+    days: [false, false, false, false, false, false, false],
+    scheduledDays: [0, 1, 2, 3, 4, 5],
+    createdAt: '2026-10-16T15:20:39.517Z'
+  },
+  {
+    id: 'goal-4',
+    name: 'Review Daily Intentions & Retrospective',
+    target: 7,
+    days: [false, false, false, false, false, false, false],
+    scheduledDays: [0, 1, 2, 3, 4, 5, 6],
+    createdAt: '2026-10-16T15:20:39.517Z'
+  }
+];
+
 function archivePastWeekGoal(goal) {
+
   if (typeof localStorage === 'undefined' || !goal || !goal.weekKey) return;
   try {
     const historyKey = getUserKey('weekly_history');
