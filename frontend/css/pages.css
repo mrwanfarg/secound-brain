@@ -502,23 +502,58 @@
   min-width: 110px;
 }
 
+.weekly-actions-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.weekly-edit-btn {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.weekly-edit-btn:hover {
+  color: var(--cyan);
+  background: rgba(91, 224, 235, 0.15);
+  border-color: rgba(91, 224, 235, 0.3);
+}
+
 .weekly-delete-btn {
   color: var(--muted);
   font-size: 16px;
   padding: 6px 10px;
   border-radius: 4px;
-  min-width: 36px;
-  min-height: 36px;
-  display: flex;
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .weekly-delete-btn:hover {
   color: var(--red);
   background: rgba(255, 123, 136, 0.15);
+  border-color: rgba(255, 123, 136, 0.3);
 }
+
 
 @media (max-width: 640px) {
   .weekly-summary-panel {

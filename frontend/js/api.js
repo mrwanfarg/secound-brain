@@ -39,18 +39,47 @@ function getUserKey(entity) {
   return `secondBrain_${userId}_${entity}`;
 }
 
-// Ensure clean, fresh workspace for user accounts - no pre-made habits or tasks
+function archivePastWeekGoal(goal) {
+  if (typeof localStorage === 'undefined' || !goal || !goal.weekKey) return;
+  try {
+    const historyKey = getUserKey('weekly_history');
+    const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+    const days = Array.isArray(goal.days) ? goal.days : [];
+    const completedDays = days.filter(Boolean).length;
+    const exists = history.some(h => h.goalId === goal.id && h.weekKey === goal.weekKey);
+    if (!exists) {
+      history.push({
+        goalId: goal.id,
+        goalName: goal.name,
+        target: goal.target,
+        days: [...days],
+        completedDays,
+        weekKey: goal.weekKey,
+        archivedAt: new Date().toISOString()
+      });
+      localStorage.setItem(historyKey, JSON.stringify(history));
+    }
+  } catch (_) {}
+}
+
+// Ensure clean, fresh workspace for user accounts while preserving any existing schedule
 function seedUserStarterData(userId, force = false) {
   if (typeof localStorage === 'undefined') return;
   const initKey = `secondBrain_${userId}_initialized`;
   if (!force && localStorage.getItem(initKey)) return;
 
-  // New users start completely clean with 0 habits, 0 tasks - they build their own schedule
   if (!localStorage.getItem(`secondBrain_${userId}_tasks`) || force) {
     localStorage.setItem(`secondBrain_${userId}_tasks`, '[]');
   }
   if (!localStorage.getItem(`secondBrain_${userId}_weekly`) || force) {
-    localStorage.setItem(`secondBrain_${userId}_weekly`, '[]');
+    const existing = localStorage.getItem('secondBrain_weekly_backup') || 
+                     localStorage.getItem('secondBrain_weekly') || 
+                     localStorage.getItem('secondBrain_guest_weekly');
+    if (existing && existing !== '[]') {
+      localStorage.setItem(`secondBrain_${userId}_weekly`, existing);
+    } else {
+      localStorage.setItem(`secondBrain_${userId}_weekly`, '[]');
+    }
   }
   if (!localStorage.getItem(`secondBrain_${userId}_notes`) || force) {
     localStorage.setItem(`secondBrain_${userId}_notes`, '[]');
@@ -63,6 +92,7 @@ function seedUserStarterData(userId, force = false) {
   }
   localStorage.setItem(initKey, 'true');
 }
+
 
 function getDateForWeekDayIndex(dayIndex) {
   const d = new Date();
@@ -467,10 +497,11 @@ class ApiClient {
     const user = auth.getCurrentUser();
     let goals = [];
 
+    // 1. Try Supabase Cloud if user is authenticated via cloud
     if (supabase && user?.isCloud) {
       try {
         const { data, error } = await supabase.from('weekly_goals').select('*').order('created_at', { ascending: true });
-        if (!error && Array.isArray(data)) {
+        if (!error && Array.isArray(data) && data.length > 0) {
           goals = data.map(g => ({
             id: g.id,
             name: g.name,
@@ -480,29 +511,74 @@ class ApiClient {
             weekKey: g.week_key,
             createdAt: g.created_at
           }));
-          // ── Sync Supabase goals into localStorage so local lookups by ID work ──
-          if (goals.length > 0) {
-            localStorage.setItem(key, JSON.stringify(goals));
-          }
+          localStorage.setItem(key, JSON.stringify(goals));
+          localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
         }
       } catch (e) {}
     }
 
+    // 2. Load from current user's local key
     if (goals.length === 0) {
       goals = JSON.parse(localStorage.getItem(key) || '[]');
     }
 
-    // Saturday rollover check: If weekKey differs, reset checks for the fresh week
+    // 3. Resilient recovery: if empty, search all candidate backup keys so schedule is never lost
+    if (goals.length === 0 && typeof localStorage !== 'undefined') {
+      const candidateKeys = [
+        'secondBrain_weekly_backup',
+        'secondBrain_weekly',
+        'secondBrain_guest_weekly'
+      ];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.includes('weekly') && !candidateKeys.includes(k) && k !== key) {
+          candidateKeys.push(k);
+        }
+      }
+      for (const k of candidateKeys) {
+        try {
+          const raw = JSON.parse(localStorage.getItem(k) || '[]');
+          if (Array.isArray(raw) && raw.length > 0) {
+            goals = raw;
+            localStorage.setItem(key, JSON.stringify(goals));
+            localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 4. If still empty, try Express REST API backend if running
+    if (goals.length === 0) {
+      try {
+        const backendUrl = config.customApiUrl || 'http://localhost:5001';
+        const res = await fetch(`${backendUrl}/api/weekly`, { signal: AbortSignal.timeout(1500) });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            goals = json.data;
+            localStorage.setItem(key, JSON.stringify(goals));
+            localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 5. Automatic Week Rollover Check (Runs every Saturday):
+    // Preserves all habits in schedule, archives past week progress, and renews days to unchecked
     let modified = false;
     goals.forEach(goal => {
       if (goal.weekKey !== currentWeekKey) {
+        archivePastWeekGoal(goal);
         goal.days = [false, false, false, false, false, false, false];
         goal.weekKey = currentWeekKey;
         modified = true;
       }
     });
+
     if (modified) {
       localStorage.setItem(key, JSON.stringify(goals));
+      localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
       if (supabase && user?.isCloud) {
         goals.forEach(g => {
           supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).catch(() => {});
@@ -623,8 +699,120 @@ class ApiClient {
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
     raw.push(newGoal);
     localStorage.setItem(key, JSON.stringify(raw));
+    localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(raw));
+
+    try {
+      const backendUrl = config.customApiUrl || 'http://localhost:5001';
+      fetch(`${backendUrl}/api/weekly`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newGoal),
+        signal: AbortSignal.timeout(1500)
+      }).catch(() => {});
+    } catch (_) {}
+
     return { success: true, data: newGoal };
   }
+
+  async updateWeeklyGoal(id, updates) {
+    const key = getUserKey('weekly');
+    let raw = JSON.parse(localStorage.getItem(key) || '[]');
+    let idx = raw.findIndex(g => g.id === id);
+
+    if (idx === -1) {
+      const backup = JSON.parse(localStorage.getItem('secondBrain_weekly_backup') || '[]');
+      const backupGoal = backup.find(g => g.id === id);
+      if (backupGoal) {
+        raw.push(backupGoal);
+        idx = raw.length - 1;
+      }
+    }
+
+    if (idx === -1) {
+      throw new Error('Habit not found');
+    }
+
+    if (updates.name && typeof updates.name === 'string') {
+      raw[idx].name = updates.name.trim();
+    }
+    if (updates.target !== undefined) {
+      raw[idx].target = Math.max(1, Math.min(7, parseInt(updates.target, 10) || 5));
+    }
+    if (Array.isArray(updates.scheduledDays)) {
+      raw[idx].scheduledDays = updates.scheduledDays.filter(d => d >= 0 && d <= 6);
+    }
+    if (Array.isArray(updates.days)) {
+      raw[idx].days = updates.days.slice(0, 7).map(Boolean);
+    }
+    raw[idx].updatedAt = new Date().toISOString();
+
+    localStorage.setItem(key, JSON.stringify(raw));
+    localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(raw));
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      try {
+        await supabase.from('weekly_goals').update({
+          name: raw[idx].name,
+          target: raw[idx].target,
+          scheduled_days: raw[idx].scheduledDays,
+          days: raw[idx].days
+        }).eq('id', id);
+      } catch (e) {}
+    }
+
+    try {
+      const backendUrl = config.customApiUrl || 'http://localhost:5001';
+      fetch(`${backendUrl}/api/weekly/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(raw[idx]),
+        signal: AbortSignal.timeout(1500)
+      }).catch(() => {});
+    } catch (_) {}
+
+    return { success: true, data: raw[idx] };
+  }
+
+  async renewWeeklySchedule() {
+    const currentWeekKey = getSaturdayWeekKey();
+    const key = getUserKey('weekly');
+    let goals = JSON.parse(localStorage.getItem(key) || '[]');
+    if (goals.length === 0) {
+      const res = await this.getWeeklyGoals();
+      goals = res.data || [];
+    }
+
+    goals.forEach(goal => {
+      archivePastWeekGoal(goal);
+      goal.days = [false, false, false, false, false, false, false];
+      goal.weekKey = currentWeekKey;
+    });
+
+    localStorage.setItem(key, JSON.stringify(goals));
+    localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(goals));
+
+    const supabase = getSupabase();
+    const user = auth.getCurrentUser();
+    if (supabase && user?.isCloud) {
+      goals.forEach(g => {
+        supabase.from('weekly_goals').update({ days: g.days, week_key: currentWeekKey }).eq('id', g.id).catch(() => {});
+      });
+    }
+
+    try {
+      const backendUrl = config.customApiUrl || 'http://localhost:5001';
+      fetch(`${backendUrl}/api/weekly/reset-week`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(1500)
+      }).catch(() => {});
+    } catch (_) {}
+
+    return { success: true, data: goals, weekKey: currentWeekKey };
+  }
+
 
   async toggleWeeklyGoalDay(id, dayIndex, status) {
     const key = getUserKey('weekly');
@@ -846,6 +1034,16 @@ class ApiClient {
     let raw = JSON.parse(localStorage.getItem(key) || '[]');
     raw = raw.filter(g => g.id !== id);
     localStorage.setItem(key, JSON.stringify(raw));
+    localStorage.setItem('secondBrain_weekly_backup', JSON.stringify(raw));
+
+    try {
+      const backendUrl = config.customApiUrl || 'http://localhost:5001';
+      fetch(`${backendUrl}/api/weekly/${id}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(1500)
+      }).catch(() => {});
+    } catch (_) {}
+
     return { success: true, message: 'Habit deleted successfully' };
   }
 

@@ -5,6 +5,7 @@ import { Toast } from '../components/Toast.js';
 import { Modal } from '../components/Modal.js';
 import { createEmptyState } from '../components/EmptyState.js';
 import { t, getLang } from '../i18n.js';
+import { openEditHabitModal } from './weeklyView.js';
 
 const DAY_NAMES_EN = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const DAY_NAMES_AR = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
@@ -328,15 +329,31 @@ export function renderTodayView(container) {
     });
 
     if (scheduledToday.length === 0) {
-      listEl.appendChild(createEmptyState({
-        icon: '▦',
-        title: 'No habits scheduled for today',
-        description: 'You can customize which days habits run from the Weekly Habits page.',
-        actionText: 'Configure Weekly Schedule →',
-        onAction: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }))
-      }));
+      const _isArEmpty = getLang() === 'ar';
+      if (goals.length > 0) {
+        listEl.appendChild(createEmptyState({
+          icon: '▦',
+          title: _isArEmpty ? `لا توجد عادات مجدولة خصيصاً ليوم (${dayName})` : `No habits scheduled for ${dayName}`,
+          description: _isArEmpty 
+            ? `لديك ${goals.length} عادات مسجلة في جدول الأسبوع ولكن لم يتم اختيار اليوم (${dayName}) ضمن أيامها. اضغط أدناه لتعديل جدولك أو تشغيلها لليوم.` 
+            : `You have ${goals.length} habits in your weekly schedule. Adjust scheduled days or view the weekly matrix.`,
+          actionText: _isArEmpty ? 'تعديل جدول الأسبوع والعادات →' : 'Configure Weekly Schedule →',
+          onAction: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }))
+        }));
+      } else {
+        listEl.appendChild(createEmptyState({
+          icon: '▦',
+          title: _isArEmpty ? 'لا توجد عادات مسجلة في جدولك بعد' : 'No habits scheduled yet',
+          description: _isArEmpty 
+            ? 'أنشئ جدول عاداتك الأسبوعية وسيتجدد تلقائياً كل أسبوع دون الحاجة لإعادة كتابته!' 
+            : 'Create your weekly habits schedule and it will automatically renew every week without re-entering!',
+          actionText: _isArEmpty ? '+ إنشاء جدول العادات الأسبوعية →' : '+ Create Weekly Habits Schedule →',
+          onAction: () => window.dispatchEvent(new CustomEvent('navigate-to', { detail: { page: 'Weekly' } }))
+        }));
+      }
       return;
     }
+
 
     scheduledToday.forEach(habit => {
       const days = Array.isArray(habit.days) ? habit.days : [false, false, false, false, false, false, false];
@@ -516,8 +533,18 @@ export function renderTodayView(container) {
         actions.appendChild(startBtn);
       }
 
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn btn-secondary btn-small';
+      editBtn.style.padding = '4px 8px';
+      editBtn.innerHTML = '✏️';
+      editBtn.title = getLang() === 'ar' ? `تعديل "${habit.name}" في جدول الأسبوع` : `Edit "${habit.name}" in weekly schedule`;
+      editBtn.addEventListener('click', () => openEditHabitModal(habit));
+      actions.appendChild(editBtn);
+
       card.append(cb, details, actions);
       listEl.appendChild(card);
+
     });
   }
 

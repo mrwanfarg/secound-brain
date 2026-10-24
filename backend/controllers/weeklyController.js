@@ -222,6 +222,48 @@ export const completeHabitToday = (req, res) => {
   }
 };
 
+export const updateWeeklyGoal = (req, res) => {
+  try {
+    const goal = db.getById('weeklyGoals', req.params.id);
+    if (!goal) return res.status(404).json({ success: false, message: 'Habit not found' });
+
+    const updates = { ...req.body };
+    if (updates.name && typeof updates.name === 'string') {
+      updates.name = updates.name.trim();
+    }
+    if (updates.target !== undefined) {
+      updates.target = Math.max(1, Math.min(7, parseInt(updates.target, 10) || 5));
+    }
+    if (Array.isArray(updates.scheduledDays)) {
+      updates.scheduledDays = updates.scheduledDays.filter(d => d >= 0 && d <= 6);
+    }
+    if (Array.isArray(updates.days)) {
+      updates.days = updates.days.slice(0, 7).map(Boolean);
+    }
+    updates.updatedAt = new Date().toISOString();
+
+    const updated = db.update('weeklyGoals', req.params.id, updates);
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const resetWeekRollover = (req, res) => {
+  try {
+    const currentWeekKey = getSaturdayWeekKey();
+    let goals = db.getAll('weeklyGoals');
+    goals.forEach(goal => {
+      goal.days = [false, false, false, false, false, false, false];
+      goal.weekKey = currentWeekKey;
+    });
+    db.save();
+    res.json({ success: true, message: 'Weekly schedule renewed successfully', weekKey: currentWeekKey, data: goals });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const deleteWeeklyGoal = (req, res) => {
   try {
     const success = db.delete('weeklyGoals', req.params.id);
@@ -233,3 +275,4 @@ export const deleteWeeklyGoal = (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

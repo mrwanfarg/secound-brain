@@ -853,6 +853,18 @@ app.put('/api/weekly/:id', (req, res) => {
   res.json({ success: true, data: updated });
 });
 
+app.post('/api/weekly/reset-week', (req, res) => {
+  const currentWeekKey = getSaturdayWeekKey();
+  let goals = db.getAll('weeklyGoals');
+  goals.forEach(goal => {
+    goal.days = [false, false, false, false, false, false, false];
+    goal.weekKey = currentWeekKey;
+  });
+  db.save();
+  res.json({ success: true, message: 'Weekly schedule renewed successfully', weekKey: currentWeekKey, data: goals });
+});
+
+
 // Toggle today's status for a habit & keep tasks in sync
 app.patch('/api/weekly/:id/toggle-today', (req, res) => {
   try {
