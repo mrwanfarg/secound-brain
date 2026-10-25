@@ -1002,7 +1002,8 @@ class ApiClient {
     return { success: true, isCompletedToday: nextState, goal, todayIndex };
   }
 
-  async completeHabitToday(id, { durationMinutes = 0, elapsedSeconds = 0, notes = '', totalMinutes = 0, sessionMinutes = 0, title = '' } = {}) {
+  async completeHabitToday(id, options = {}) {
+    const { durationMinutes = 0, elapsedSeconds = 0, notes = '', totalMinutes = 0, sessionMinutes = 0, title = '' } = options || {};
     const key = getUserKey('weekly');
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
     let goal = raw.find(g => g.id === id || g.id?.toString() === id?.toString());
