@@ -1049,7 +1049,7 @@ class ApiClient {
       task.completed = true;
       task.status = 'completed';
       task.completedAt = nowIso;
-      task.actualMinutes = Math.max(Number(task.actualMinutes) || 0, finalTotalMins);
+      task.actualMinutes = (Number(task.actualMinutes) || 0) + addedSessionMins;
     } else {
       task = {
         id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -1108,7 +1108,7 @@ class ApiClient {
 
         if (existingTasks && existingTasks.length > 0) {
           const existing = existingTasks[0];
-          const newActual = Math.max(Number(existing.actual_minutes) || 0, finalTotalMins);
+          const newActual = (Number(existing.actual_minutes) || 0) + addedSessionMins;
           await supabase.from('tasks').update({
             completed: true,
             status: 'completed',
